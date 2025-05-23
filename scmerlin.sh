@@ -651,7 +651,9 @@ function GenerateSiteMap(showurls)
 (function(){
   if (window._stateEnhancedInjected) return;
   window._stateEnhancedInjected = true;
+
   const CACHE_KEY = 'stateEnhanced_menuListCache';
+
   function readCache(){
     try {
       return JSON.parse(localStorage.getItem(CACHE_KEY)) || {};
@@ -664,29 +666,34 @@ function GenerateSiteMap(showurls)
       JSON.stringify({ menuList: list, menuExclude: exclude })
     );
   }
+
   (function watchForSetup(){
-    if (location.pathname.endsWith('index.asp')) {
-      if (!window.menuList || !window.menuExclude) {
-        const { menuList, menuExclude } = readCache();
-        if (menuList && menuExclude) {
-          window.menuList    = menuList;
-          window.menuExclude = menuExclude;
-        } else {
-          return setTimeout(watchForSetup, 200);
-        }
+    // On index.asp or login.asp, *always* refresh the cache
+    if (/(index|login)\.asp$/.test(location.pathname)) {
+      // If the page has already populated its menus, write them straight to cache
+      if (Array.isArray(window.menuList) && window.menuExclude) {
+        writeCache(window.menuList, window.menuExclude);
       }
+      // Now wait until the site has finished loading its own menus...
+      if (!window.menuList || !window.menuExclude) {
+        return setTimeout(watchForSetup, 200);
+      }
+      // And once load fires, build & inject
       window.addEventListener('load', () => {
         buildMyMenu();
         injectDropdowns();
       });
       return;
     }
+
+    // On any other page, use cache if menus aren't on window yet
     if (
       Array.isArray(window.menuList) && window.menuList.length &&
       window.menuExclude &&
       Array.isArray(window.menuExclude.tabs) &&
       Array.isArray(window.menuExclude.menus)
     ) {
+      // First time on a non-index page: save into cache for next index/login
       if (!readCache().menuList) {
         writeCache(window.menuList, window.menuExclude);
       }
@@ -696,9 +703,11 @@ function GenerateSiteMap(showurls)
       setTimeout(watchForSetup, 200);
     }
   })();
+
   function buildMyMenu()
   {
     if (window.myMenu && window.myMenu.length) return;
+
     const cache   = readCache();
     const exclude = (window.menuExclude && Array.isArray(window.menuExclude.tabs))
                     ? window.menuExclude
@@ -707,6 +716,7 @@ function GenerateSiteMap(showurls)
     const src     = Array.isArray(window.menuList) && window.menuList.length
                     ? window.menuList
                     : (cache.menuList || []);
+
     window.myMenu = src
       .filter(m => !hidden.has(m.index))
       .map(m => ({
@@ -715,14 +725,15 @@ function GenerateSiteMap(showurls)
         tabs:     (m.tab||[])
                     .filter(t => !exclude.tabs.includes(t.url))
                     .filter(t => !(t.tabName==='__INHERIT__' && t.url==='NULL'))
-                    .filter(t => !(t.tabName==='__HIDE__'   && t.url==='NULL'))
                     .filter(t => t.tabName!=='__HIDE__')
       }))
       .filter(m => m.tabs.length > 0);
   }
+
   function injectDropdowns()
   {
     if (!Array.isArray(window.myMenu)) return;
+
     window.myMenu.forEach(menu => {
       let icon = document.getElementsByClassName(menu.index)[0];
       if (!icon) {
@@ -731,6 +742,7 @@ function GenerateSiteMap(showurls)
       }
       if (!icon || icon._injected) return;
       icon._injected = true;
+
       let html = '<div class="dropdown-content">';
       menu.tabs.forEach(t => {
         const name = (t.tabName==='__INHERIT__') ? t.url.split('.')[0] : t.tabName;
@@ -740,9 +752,11 @@ function GenerateSiteMap(showurls)
         html += `<a href="${url}" target="_self">${name}</a>`;
       });
       html += '</div>';
+
       const container = icon.closest('.menu') || icon.parentElement;
       container.classList.add('dropdown');
       container.insertAdjacentHTML('beforeend', html);
+
       const dd = container.querySelector('.dropdown-content');
       icon.addEventListener('click', e => {
         e.stopPropagation();
@@ -751,6 +765,7 @@ function GenerateSiteMap(showurls)
       dd.addEventListener('click', e => e.stopPropagation());
     });
   }
+
   function rehookShowMenu()
   {
     if (typeof show_menu !== 'function') return;
@@ -761,6 +776,7 @@ function GenerateSiteMap(showurls)
       injectDropdowns();
     };
   }
+
   function init()
   {
     rehookShowMenu();
@@ -769,15 +785,18 @@ function GenerateSiteMap(showurls)
               .forEach(el => { if (el.style.display==='block') el.style.display = 'none'; });
     });
   }
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
     init();
   }
+
   window.addEventListener('load', ()=>{
     buildMyMenu();
     injectDropdowns();
   });
+
 })();
 EOF
 }

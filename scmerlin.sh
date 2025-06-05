@@ -12,9 +12,9 @@
 ## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2025-May-18
+# Last Modified: 2025-May-23
 #-----------------------------------------------------
-## Modification by thelonelycoder [2025-May-18] ##
+## Modification by thelonelycoder [2025-May-23] ##
 # Changed repo paths to OSR, added OSR repo to headers, increased version. 
 
 ##########       Shellcheck directives     ###########
@@ -30,8 +30,8 @@
 ### Start of script variables ###
 readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
-readonly SCM_VERSION="v2.5.30"
-readonly SCRIPT_VERSION="v2.5.30"
+readonly SCM_VERSION="v2.5.40"
+readonly SCRIPT_VERSION="v2.5.40"
 SCRIPT_BRANCH="master"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"

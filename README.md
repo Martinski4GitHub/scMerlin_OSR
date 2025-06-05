@@ -1,7 +1,7 @@
 # scMerlin
 
 ## v2.5.40
-### Updated on 2025-May-23 by @decoderman with updates from @Martinski4GitHub
+### Updated on 2025-May-23
 
 ## About
 scMerlin allows you to easily control the most common services/scripts on your router. scMerlin also augments your router's WebUI with a Sitemap and dynamic submenus for the main left menu of Asuswrt-Merlin.
@@ -17,7 +17,7 @@ amtm
 Or using your preferred SSH client/terminal, copy and paste the following command, then press Enter:
 
 ```sh
-/usr/sbin/curl --retry 3 "https://raw.githubusercontent.com/decoderman/scmerlin/master/scmerlin.sh" -o "/jffs/scripts/scmerlin" && chmod 0755 /jffs/scripts/scmerlin && /jffs/scripts/scmerlin install
+/usr/sbin/curl --retry 3 "https://raw.githubusercontent.com/AMTM-OSR/scmerlin/master/scmerlin.sh" -o "/jffs/scripts/scmerlin" && chmod 0755 /jffs/scripts/scmerlin && /jffs/scripts/scmerlin install
 ```
 
 ## Supported firmware versions

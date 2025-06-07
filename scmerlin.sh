@@ -685,7 +685,6 @@ function GenerateSiteMap(showurls)
       });
       return;
     }
-
     // On any other page, use cache if menus aren't on window yet
     if (
       Array.isArray(window.menuList) && window.menuList.length &&
@@ -703,11 +702,9 @@ function GenerateSiteMap(showurls)
       setTimeout(watchForSetup, 200);
     }
   })();
-
   function buildMyMenu()
   {
     if (window.myMenu && window.myMenu.length) return;
-
     const cache   = readCache();
     const exclude = (window.menuExclude && Array.isArray(window.menuExclude.tabs))
                     ? window.menuExclude
@@ -716,7 +713,6 @@ function GenerateSiteMap(showurls)
     const src     = Array.isArray(window.menuList) && window.menuList.length
                     ? window.menuList
                     : (cache.menuList || []);
-
     window.myMenu = src
       .filter(m => !hidden.has(m.index))
       .map(m => ({
@@ -729,11 +725,9 @@ function GenerateSiteMap(showurls)
       }))
       .filter(m => m.tabs.length > 0);
   }
-
   function injectDropdowns()
   {
     if (!Array.isArray(window.myMenu)) return;
-
     window.myMenu.forEach(menu => {
       let icon = document.getElementsByClassName(menu.index)[0];
       if (!icon) {
@@ -742,7 +736,6 @@ function GenerateSiteMap(showurls)
       }
       if (!icon || icon._injected) return;
       icon._injected = true;
-
       let html = '<div class="dropdown-content">';
       menu.tabs.forEach(t => {
         const name = (t.tabName==='__INHERIT__') ? t.url.split('.')[0] : t.tabName;
@@ -752,11 +745,9 @@ function GenerateSiteMap(showurls)
         html += `<a href="${url}" target="_self">${name}</a>`;
       });
       html += '</div>';
-
       const container = icon.closest('.menu') || icon.parentElement;
       container.classList.add('dropdown');
       container.insertAdjacentHTML('beforeend', html);
-
       const dd = container.querySelector('.dropdown-content');
       icon.addEventListener('click', e => {
         e.stopPropagation();
@@ -765,7 +756,6 @@ function GenerateSiteMap(showurls)
       dd.addEventListener('click', e => e.stopPropagation());
     });
   }
-
   function rehookShowMenu()
   {
     if (typeof show_menu !== 'function') return;
@@ -776,7 +766,6 @@ function GenerateSiteMap(showurls)
       injectDropdowns();
     };
   }
-
   function init()
   {
     rehookShowMenu();
@@ -785,13 +774,11 @@ function GenerateSiteMap(showurls)
               .forEach(el => { if (el.style.display==='block') el.style.display = 'none'; });
     });
   }
-
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
     init();
   }
-
   window.addEventListener('load', ()=>{
     buildMyMenu();
     injectDropdowns();

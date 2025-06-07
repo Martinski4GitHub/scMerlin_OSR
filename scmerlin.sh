@@ -651,9 +651,7 @@ function GenerateSiteMap(showurls)
 (function(){
   if (window._stateEnhancedInjected) return;
   window._stateEnhancedInjected = true;
-
   const CACHE_KEY = 'stateEnhanced_menuListCache';
-
   function readCache(){
     try {
       return JSON.parse(localStorage.getItem(CACHE_KEY)) || {};
@@ -666,7 +664,6 @@ function GenerateSiteMap(showurls)
       JSON.stringify({ menuList: list, menuExclude: exclude })
     );
   }
-
   (function watchForSetup(){
     // On index.asp or login.asp, *always* refresh the cache
     if (/(index|login)\.asp$/.test(location.pathname)) {
@@ -783,7 +780,6 @@ function GenerateSiteMap(showurls)
     buildMyMenu();
     injectDropdowns();
   });
-
 })();
 EOF
 }

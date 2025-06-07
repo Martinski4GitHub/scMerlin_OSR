@@ -30,8 +30,8 @@
 ### Start of script variables ###
 readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
-readonly SCM_VERSION="v2.5.40"
-readonly SCRIPT_VERSION="v2.5.40"
+readonly SCM_VERSION="v2.5.31"
+readonly SCRIPT_VERSION="v2.5.31"
 SCRIPT_BRANCH="master"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -818,6 +818,19 @@ Upgrade_StateJS()
         sed -i '/^var myMenu = \[\];$/,/^AddDropdowns();$/d' "$TMP_STATE_JS"
 
         # Append new 3006 code #
+        AppendTo_statejs_3006_ >> "$TMP_STATE_JS"
+
+        mount -o bind /tmp/state.js /www/state.js
+
+    elif [ "$fwInstalledBaseVers" = "3006" ] && \
+       ! grep -q 'write them straight to cache' "$TMP_STATE_JS"
+    then
+        umount /www/state.js 2>/dev/null
+
+        # Remove old block starting at GenerateSiteMap() through EOF
+        sed -i '/^function GenerateSiteMap(showurls)/,$d' "$TMP_STATE_JS"
+
+        # Reinject the 3006 specific code
         AppendTo_statejs_3006_ >> "$TMP_STATE_JS"
 
         mount -o bind /tmp/state.js /www/state.js

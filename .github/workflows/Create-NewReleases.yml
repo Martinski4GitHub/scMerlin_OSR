@@ -70,14 +70,14 @@ jobs:
       # 4--- Update SCRIPT_BRANCH only
       - name: Update Script.sh Script Branch
         run: |
-          sed -i '/^scribe_branch=.*$/s/.*/SCRIPT_BRANCH="master"/' scmerlin.sh
+          sed -i '/^SCRIPT_BRANCH=.*$/s/.*/SCRIPT_BRANCH="master"/' scmerlin.sh
 
       # 5--- Commit branch change only if the file was actually modified
       - name: Commit branch change
         run: |
           git add scmerlin.sh
           if ! git diff --cached --quiet; then
-            git commit -m 'Set scribe_branch to "master" after merge'
+            git commit -m 'Set SCRIPT_BRANCH to "master" after merge'
             git push origin master
           else
             echo "No branch change needed"

@@ -1824,13 +1824,11 @@ Get_NVRAM_Usage()
 
 Get_WAN_Uptime_JS () {
     local jsfile="/www/ext/scmerlin/wanuptime.js"
-    local ESC="$(printf '\033')"         # literal ESC, portable to BusyBox
+    local ESC="$(printf '\033')"
     local upmsg
 
-    # run the function, then strip all ESC[ … letter sequences
     upmsg="$( Get_WAN_Uptime | sed "s/${ESC}\[[0-9;]*[[:alpha:]]//g" )"
 
-    # fallback text
     [ -z "$upmsg" ] && upmsg="WAN uptime: N/A"
 
     printf "var wan_uptime_text = '%s';\n" "$upmsg" > "$jsfile"
@@ -1853,7 +1851,6 @@ Get_WAN_Uptime()
     fi
 
     # Try nvram first #
-    # router uptime in whole seconds
     sys_uptime=$(cut -d'.' -f1 /proc/uptime)
 
     for iface in 0 1; do

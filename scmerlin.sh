@@ -12,9 +12,8 @@
 ## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2025-Jul-21
+## Modification by ExtremeFiretop [2025-Jul-22] ##
 #-----------------------------------------------------
-## Modification by ExtremeFiretop [2025-Jul-21] ##
 # Changed repo paths to OSR, added OSR repo to headers, increased version. 
 
 ##########       Shellcheck directives     ###########
@@ -1834,14 +1833,70 @@ Get_WAN_Uptime_JS () {
     printf "var wan_uptime_text = '%s';\n" "$upmsg" > "$jsfile"
 }
 
-##--------------------------------------------------##
-## Added by ExtremeFiretop [2025-Jul-21] – WAN time ##
-##--------------------------------------------------##
+##---------------------------------------##
+## Added by ExtremeFiretop [2025-Jul-22] ##
+##---------------------------------------##
+_InstallWanEventHook_() {
+    local action="$1"                       # create | delete
+    local hook="/jffs/scripts/wan-event"
+
+    # Exact line we want present in wan-event
+    local hookLine='sh /jffs/scripts/scmerlin wan_event "$@" & #Added by scMerlin#'
+
+    # Pattern good for grep/sed (quoted so the $ and " don’t confuse grep -E)
+    local hookPattern='#Added by scMerlin#'
+
+    ##########################################################################
+    case "$action" in
+    ##########################################################################
+    create)
+        if [ ! -f "$hook" ]; then
+            {
+                echo '#!/bin/sh'
+                echo "$hookLine"
+            } >"$hook"
+            Say "wan-event script created at '$hook'."
+        elif ! grep -qE "$hookPattern" "$hook"; then
+            echo "$hookLine" >>"$hook"
+            Say "scMerlin hook appended to existing '$hook'."
+        else
+            Say "scMerlin hook already present in '$hook'."
+        fi
+        chmod 0755 "$hook"
+        ;;
+
+    ##########################################################################
+    delete)
+        if [ ! -f "$hook" ]; then
+            Say "wan-event script '$hook' does not exist."
+            return 1
+        fi
+
+        if grep -qE "$hookPattern" "$hook"; then
+            # Delete the single matching line
+            sed -i "\|$hookPattern|d" "$hook"
+            Say "scMerlin hook removed from '$hook'."
+        else
+            Say "scMerlin hook not found in '$hook'."
+        fi
+        ;;
+
+    ##########################################################################
+    *)
+        Say "Usage: _InstallWanEventHook_ create|delete"
+        return 1
+        ;;
+    esac
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2025-Jul-22] ##
+##---------------------------------------##
 Get_WAN_Uptime()
 {
     local iface upsecs uptime days hours minutes
-    local wanup_secs year now_secs infile
-    local active_if="" wan_line month month_num day time_str
+    local wanup_secs now_secs
+    local active_if="" ts_file
 
     # Abort if both WANs are down #
     if [ "$(nvram get wan0_state_t)" != "2" ] && [ "$(nvram get wan1_state_t)" != "2" ]
@@ -1855,7 +1910,6 @@ Get_WAN_Uptime()
 
     # Fallback to /proc/uptime only when NVRAM is empty / unset
     if [ -z "$sys_uptime" ]; then
-        # cut strips the fractional seconds; first field is whole‑seconds uptime
         sys_uptime=$(cut -d'.' -f1 /proc/uptime 2>/dev/null)
     fi
 
@@ -1863,8 +1917,7 @@ Get_WAN_Uptime()
     case "$sys_uptime" in
         ''|*[!0-9]*)
             printf '%sUnable to determine numeric system uptime%s\n' "${REDct}" "${CLRct}" >&2
-            return 1
-            ;;
+            return 1 ;;
     esac
 
     for iface in 0 1; do
@@ -1873,7 +1926,6 @@ Get_WAN_Uptime()
         start_off=$(nvram get wan${iface}_uptime 2>/dev/null | tr -d '[:space:]')
         case "$start_off" in ''|*[!0-9]*) continue ;; esac
 
-        # seconds the WAN has been up **so far** #
         upsecs=$(( sys_uptime - start_off ))
         [ "$upsecs" -le 0 ] && continue
 
@@ -1890,51 +1942,34 @@ Get_WAN_Uptime()
         return 0
     fi
 
-    # Fall back to SYSLOG #
-    infile="/tmp/syslog.log"
-    [ -f /tmp/syslog.log-1 ] && infile="/tmp/syslog.log-1 /tmp/syslog.log"
+    # Triggered only if the NVRAM loop above failed to set $active_if.
+    if [ -z "$active_if" ] && [ -s /tmp/wan_uptime.tmp ]; then
+        read iface wanup_secs </tmp/wan_uptime.tmp
 
-    wan_line="$(grep -hE 'Initial clock set|WAN was restored' $infile 2>/dev/null | tail -n1)"
-    [ -z "$wan_line" ] && { printf "${YLWct}No WAN events in syslog${CLRct}\n"; return 1; }
+        case "$iface" in
+            0) active_if="wan0" ;;
+            1) active_if="wan1" ;;
+            *) active_if="" ;;           # unknown iface ⇒ ignore file
+        esac
 
-    # Extract tokens  #
-    set -- $wan_line
-    month="$1"; day="$2"; time_str="$3"
-    day=$(printf "%02d" "$day")
+        case "$wanup_secs" in ''|*[!0-9]*) active_if="";; esac
+        now_secs=$(date +%s)
 
-    # Month name to number #
-    case "$month" in
-        Jan) month_num=01 ;; Feb) month_num=02 ;; Mar) month_num=03 ;;
-        Apr) month_num=04 ;; May) month_num=05 ;; Jun) month_num=06 ;;
-        Jul) month_num=07 ;; Aug) month_num=08 ;; Sep) month_num=09 ;;
-        Oct) month_num=10 ;; Nov) month_num=11 ;; Dec) month_num=12 ;;
-        *)   printf "${REDct}Unknown month in syslog${CLRct}\n"; return 1 ;;
-    esac
-
-    year=$(date +%Y)
-    now_secs=$(date +%s)
-
-    wanup_secs=$(date -d "$year-$month_num-$day $time_str" +%s 2>/dev/null)
-    if [ -z "$wanup_secs" ] || [ "$wanup_secs" -gt "$now_secs" ]; then
-        year=$((year - 1))
-        wanup_secs=$(date -d "$year-$month_num-$day $time_str" +%s 2>/dev/null)
+        if [ -n "$active_if" ] && [ "$wanup_secs" -lt "$now_secs" ]; then
+            upsecs=$(( now_secs - wanup_secs ))
+        else
+            active_if=""
+        fi
     fi
 
-    # Sanity check the parsed seconds #
-    case "$wanup_secs" in ''|*[!0-9]*)
-        printf "${REDct}Unable to parse WAN-up time${CLRct}\n"
-        return 1 ;;
-    esac
-
-    # Print Final Result # 
-    uptime=$((now_secs - wanup_secs))
-    days="$((uptime/86400))"
-    hours="$((uptime/3600%24))"
-    minutes="$((uptime/60%60))"
-
-    printf "${GRNct}(syslog):${CLRct} %s days %s hrs %s mins\n" \
-           "$days" "$hours" "$minutes"
-    return 0
+    if [ -n "$active_if" ]; then
+        days="$((upsecs/86400))"
+        hours="$((upsecs/3600%24))"
+        minutes="$((upsecs/60%60))"
+        printf "${GRNct}(${active_if}):${CLRct} %s days %s hrs %s mins\n" \
+               "$days" "$hours" "$minutes"
+        return 0
+    fi
 }
 
 ScriptHeader()
@@ -2524,9 +2559,9 @@ Check_Requirements()
 	fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Feb-15] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-Jul-22] ##
+##------------------------------------------##
 Menu_Install()
 {
 	ScriptHeader
@@ -2552,6 +2587,7 @@ Menu_Install()
 	Set_Version_Custom_Settings server "$SCRIPT_VERSION"
 	Auto_Startup create 2>/dev/null
 	Auto_ServiceEvent create 2>/dev/null
+	_InstallWanEventHook_ create 2>/dev/null
 
 	Update_File scmerlin_www.asp
 	Update_File sitemap.asp
@@ -2572,9 +2608,9 @@ Menu_Install()
 	MainMenu
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Apr-13] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-Jul-22] ##
+##------------------------------------------##
 Menu_Startup()
 {
 	Create_Dirs
@@ -2591,6 +2627,7 @@ Menu_Startup()
 
 	Shortcut_Script create
 	Auto_ServiceEvent create 2>/dev/null
+	_InstallWanEventHook_ create 2>/dev/null
 
 	"$SCRIPT_DIR/S99tailtop" start >/dev/null 2>&1
 
@@ -2650,14 +2687,15 @@ _FindandRemoveMenuAddOnsSection_()
    return "$retCode"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Mar-01] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-Jul-22] ##
+##------------------------------------------##
 Menu_Uninstall()
 {
 	Print_Output true "Removing $SCRIPT_NAME..." "$PASS"
 	Shortcut_Script delete
 	Auto_Startup delete 2>/dev/null
+	_InstallWanEventHook_ delete 2>/dev/null
 	Auto_ServiceEvent delete 2>/dev/null
 	NTP_BootWatchdog disable
 	NTP_ReadyCheckOption delete
@@ -2875,9 +2913,9 @@ EOF
 	printf "\n"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Feb-11] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-Jul-22] ##
+##------------------------------------------##
 if [ $# -eq 0 ] || [ -z "$1" ]
 then
 	isInteractiveMenuMode=true
@@ -2887,6 +2925,7 @@ then
 	NTP_Ready
 	Shortcut_Script create
 	Auto_Startup create 2>/dev/null
+	_InstallWanEventHook_ create 2>/dev/null
 	Auto_ServiceEvent create 2>/dev/null
 	Process_Upgrade
 	_CheckFor_WebGUI_Page_
@@ -2895,9 +2934,9 @@ then
 	exit 0
 fi
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Apr-13] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-Jul-22] ##
+##------------------------------------------##
 case "$1" in
 	install)
 		Check_Lock
@@ -3013,6 +3052,24 @@ case "$1" in
 		fi
 		exit 0
 	;;
+    wan_event)
+        iface="$2"           # 0 = primary WAN, 1 = secondary
+        if [ "$3" = "connected" ]; then
+            if [ -s /tmp/wan_uptime.tmp ]; then
+                read -r ts </tmp/wan_uptime.tmp
+            else
+                ts=$(date +%s)
+            fi
+            echo "$iface $ts" >/tmp/wan_uptime.tmp       # Persist start-time
+            exit 0
+        elif [ "$2" = "disconnected" ] || [ "$2" = "stopped" ] || \
+             [ "$2" = "disabled" ]; then
+
+            rm -f /tmp/wan_uptime.tmp /tmp/wan_status.tmp   # remove leftovers
+            exit 0
+        fi
+        exit 0
+    ;;
 	update)
 		Update_Version
 		exit 0
@@ -3027,6 +3084,7 @@ case "$1" in
 		Shortcut_Script create
 		Auto_Startup create 2>/dev/null
 		Auto_ServiceEvent create 2>/dev/null
+		_InstallWanEventHook_ create 2>/dev/null
 		Process_Upgrade
 		exit 0
 	;;

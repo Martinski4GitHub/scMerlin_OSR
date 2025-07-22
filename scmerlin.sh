@@ -1821,6 +1821,9 @@ Get_NVRAM_Usage()
    echo
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2025-Jul-22] ##
+##---------------------------------------##
 Get_WAN_Uptime_JS () {
     local jsfile="/www/ext/scmerlin/wanuptime.js"
     local ESC="$(printf '\033')"
@@ -3049,24 +3052,24 @@ case "$1" in
 		fi
 		exit 0
 	;;
-    wan_event)
-        iface="$2"           # 0 = primary WAN, 1 = secondary
-        if [ "$3" = "connected" ]; then
-            if [ -s /tmp/wan_uptime.tmp ]; then
-                read -r ts </tmp/wan_uptime.tmp
-            else
-                ts=$(date +%s)
-            fi
-            echo "$iface $ts" >/tmp/wan_uptime.tmp       # Persist start-time
-            exit 0
-        elif [ "$2" = "disconnected" ] || [ "$2" = "stopped" ] || \
-             [ "$2" = "disabled" ]; then
+	wan_event)
+		iface="$2"           # 0 = primary WAN, 1 = secondary
+		if [ "$3" = "connected" ]; then
+			if [ -s /tmp/wan_uptime.tmp ]; then
+				read -r ts </tmp/wan_uptime.tmp
+			else
+				ts=$(date +%s)
+			fi
+			echo "$iface $ts" >/tmp/wan_uptime.tmp       # Persist start-time
+			exit 0
+		elif [ "$2" = "disconnected" ] || [ "$2" = "stopped" ] || \
+			[ "$2" = "disabled" ]; then
 
-            rm -f /tmp/wan_uptime.tmp /tmp/wan_status.tmp   # remove leftovers
-            exit 0
-        fi
-        exit 0
-    ;;
+			rm -f /tmp/wan_uptime.tmp /tmp/wan_status.tmp   # remove leftovers
+			exit 0
+		fi
+		exit 0
+	;;
 	update)
 		Update_Version
 		exit 0

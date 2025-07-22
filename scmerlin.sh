@@ -1843,12 +1843,10 @@ _InstallWanEventHook_() {
     # Exact line we want present in wan-event
     local hookLine='sh /jffs/scripts/scmerlin wan_event "$@" & #Added by scMerlin#'
 
-    # Pattern good for grep/sed (quoted so the $ and " don’t confuse grep -E)
+    # Pattern good for grep/sed
     local hookPattern='#Added by scMerlin#'
 
-    ##########################################################################
     case "$action" in
-    ##########################################################################
     create)
         if [ ! -f "$hook" ]; then
             {
@@ -1864,8 +1862,6 @@ _InstallWanEventHook_() {
         fi
         chmod 0755 "$hook"
         ;;
-
-    ##########################################################################
     delete)
         if [ ! -f "$hook" ]; then
             Say "wan-event script '$hook' does not exist."
@@ -1880,8 +1876,6 @@ _InstallWanEventHook_() {
             Say "scMerlin hook not found in '$hook'."
         fi
         ;;
-
-    ##########################################################################
     *)
         Say "Usage: _InstallWanEventHook_ create|delete"
         return 1
@@ -1917,7 +1911,8 @@ Get_WAN_Uptime()
     case "$sys_uptime" in
         ''|*[!0-9]*)
             printf '%sUnable to determine numeric system uptime%s\n' "${REDct}" "${CLRct}" >&2
-            return 1 ;;
+            return 1 
+            ;;
     esac
 
     for iface in 0 1; do
@@ -1952,6 +1947,7 @@ Get_WAN_Uptime()
             *) active_if="" ;;           # unknown iface ⇒ ignore file
         esac
 
+        # Sanity check the parsed seconds #
         case "$wanup_secs" in ''|*[!0-9]*) active_if="";; esac
         now_secs=$(date +%s)
 
@@ -1962,6 +1958,7 @@ Get_WAN_Uptime()
         fi
     fi
 
+    # Print Final Result #
     if [ -n "$active_if" ]; then
         days="$((upsecs/86400))"
         hours="$((upsecs/3600%24))"

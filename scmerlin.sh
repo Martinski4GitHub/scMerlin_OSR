@@ -1913,7 +1913,7 @@ Get_WAN_Uptime()
     # Validate that we now have a purely numeric value
     case "$sys_uptime" in
         ''|*[!0-9]*)
-            printf '%sUnable to determine numeric system uptime%s\n' "${REDct}" "${CLRct}" >&2
+            printf "${REDct}Unable to determine numeric system uptime${CLRct}\n"
             return 1 
             ;;
     esac
@@ -1969,6 +1969,9 @@ Get_WAN_Uptime()
         printf "${GRNct}(${active_if}):${CLRct} %s days %s hrs %s mins\n" \
                "$days" "$hours" "$minutes"
         return 0
+    else
+        printf "${REDct}WAN is down${CLRct}\n"
+        return 1
     fi
 }
 

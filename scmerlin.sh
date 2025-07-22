@@ -12,9 +12,9 @@
 ## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2025-May-23
+# Last Modified: 2025-May-21
 #-----------------------------------------------------
-## Modification by thelonelycoder [2025-May-23] ##
+## Modification by ExtremeFiretop [2025-Jul-21] ##
 # Changed repo paths to OSR, added OSR repo to headers, increased version. 
 
 ##########       Shellcheck directives     ###########
@@ -30,8 +30,8 @@
 ### Start of script variables ###
 readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
-readonly SCM_VERSION="v2.5.31"
-readonly SCRIPT_VERSION="v2.5.31"
+readonly SCM_VERSION="v2.5.40"
+readonly SCRIPT_VERSION="v2.5.40"
 SCRIPT_BRANCH="master"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -1850,16 +1850,20 @@ Get_WAN_Uptime()
         return 1
     fi
 
-    # Try nvram first #
-    sys_uptime=$(cut -d'.' -f1 /proc/uptime)
+    # system-uptime: use nvram counter #
+    sys_uptime=$(nvram get sys_uptime_now 2>/dev/null | tr -d '[:space:]')
+    case "$sys_uptime" in ''|*[!0-9]*)
+        printf "${REDct}Unable to read numeric sys_uptime_now from NVRAM${CLRct}\n"
+        return 1
+    esac
 
     for iface in 0 1; do
         [ "$(nvram get wan${iface}_state_t)" = "2" ] || continue
 
         start_off=$(nvram get wan${iface}_uptime 2>/dev/null | tr -d '[:space:]')
-        case "$start_off" in ''|*[!0-9]*) continue ;; esac  # not numeric → skip
+        case "$start_off" in ''|*[!0-9]*) continue ;; esac
 
-        # seconds the WAN has been up **so far**
+        # seconds the WAN has been up **so far** #
         upsecs=$(( sys_uptime - start_off ))
         [ "$upsecs" -le 0 ] && continue
 
@@ -1883,12 +1887,12 @@ Get_WAN_Uptime()
     wan_line="$(grep -hE 'Initial clock set|WAN was restored' $infile 2>/dev/null | tail -n1)"
     [ -z "$wan_line" ] && { printf "${YLWct}No WAN events in syslog${CLRct}\n"; return 1; }
 
-    # Extract tokens
+    # Extract tokens  #
     set -- $wan_line
     month="$1"; day="$2"; time_str="$3"
     day=$(printf "%02d" "$day")
 
-    # Month name → number
+    # Month name to number #
     case "$month" in
         Jan) month_num=01 ;; Feb) month_num=02 ;; Mar) month_num=03 ;;
         Apr) month_num=04 ;; May) month_num=05 ;; Jun) month_num=06 ;;
@@ -1906,7 +1910,7 @@ Get_WAN_Uptime()
         wanup_secs=$(date -d "$year-$month_num-$day $time_str" +%s 2>/dev/null)
     fi
 
-    # Sanity check the parsed seconds
+    # Sanity check the parsed seconds #
     case "$wanup_secs" in ''|*[!0-9]*)
         printf "${REDct}Unable to parse WAN-up time${CLRct}\n"
         return 1 ;;

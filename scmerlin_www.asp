@@ -268,7 +268,7 @@ function GetTemperatureValue (bandIDstr)
 }
 
 /* -----------------------------------------------------------------
- *  update_wanuptime  (nvram‑first, AJAX‑fallback)
+ *  update_wanuptime  (nvram-first, AJAX-fallback)
  * -----------------------------------------------------------------*/
 
 let wu_inited      = false;   // captured once
@@ -325,7 +325,7 @@ function update_wanuptime () {
         wu_useFallback = true;   // no valid data → fall back
     }
 
-    /* ---- AJAX fallback (legacy behaviour) ---- */
+    /* ---- AJAX fallback ---- */
     $.ajax({
         url      : '/ext/scmerlin/wanuptime.js',
         dataType : 'script',

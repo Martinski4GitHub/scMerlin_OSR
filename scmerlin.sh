@@ -1895,6 +1895,7 @@ _Init_WAN_Uptime_File_()
     for iface in 0 1; do
         [ "$(nvram get wan${iface}_state_t)" = "2" ] && {
             echo "${iface} $(date +%s)" > /tmp/wan_uptime.tmp
+            sleep 1
             return 0
         }
     done

@@ -1850,11 +1850,21 @@ Get_WAN_Uptime()
         return 1
     fi
 
-    # system-uptime: use nvram counter #
+    # Try to get a trimmed NVRAM value
     sys_uptime=$(nvram get sys_uptime_now 2>/dev/null | tr -d '[:space:]')
-    case "$sys_uptime" in ''|*[!0-9]*)
-        printf "${REDct}Unable to read numeric sys_uptime_now from NVRAM${CLRct}\n"
-        return 1
+
+    # Fallback to /proc/uptime only when NVRAM is empty / unset
+    if [ -z "$sys_uptime" ]; then
+        # cut strips the fractional seconds; first field is whole‑seconds uptime
+        sys_uptime=$(cut -d'.' -f1 /proc/uptime 2>/dev/null)
+    fi
+
+    # Validate that we now have a purely numeric value
+    case "$sys_uptime" in
+        ''|*[!0-9]*)
+            printf '%sUnable to determine numeric system uptime%s\n' "${REDct}" "${CLRct}" >&2
+            return 1
+            ;;
     esac
 
     for iface in 0 1; do

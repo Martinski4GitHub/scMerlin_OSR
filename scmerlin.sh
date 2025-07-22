@@ -1902,19 +1902,19 @@ Get_WAN_Uptime()
         return 1
     fi
 
-    # Try to get a trimmed NVRAM value
-    sys_uptime=$(nvram get sys_uptime_now 2>/dev/null | tr -d '[:space:]')
+    # the monotonic counter from /proc/uptime (strip decimal) #
+    sys_uptime=$(cut -d'.' -f1 /proc/uptime 2>/dev/null)
 
-    # Fallback to /proc/uptime only when NVRAM is empty / unset
+    # Fall back to the NVRAM snapshot if /proc/uptime was empty/unreadable #
     if [ -z "$sys_uptime" ]; then
-        sys_uptime=$(cut -d'.' -f1 /proc/uptime 2>/dev/null)
+        sys_uptime=$(nvram get sys_uptime_now 2>/dev/null | tr -d '[:space:]')
     fi
 
-    # Validate that we now have a purely numeric value
+    # Validate that we now have a purely numeric value #
     case "$sys_uptime" in
         ''|*[!0-9]*)
             printf "${REDct}Unable to determine numeric system uptime${CLRct}\n"
-            return 1 
+            return 1
             ;;
     esac
 
@@ -1970,7 +1970,7 @@ Get_WAN_Uptime()
                "$days" "$hours" "$minutes"
         return 0
     else
-        printf "${REDct}WAN is down${CLRct}\n"
+        printf "${REDct}No WAN events detected${CLRct}\n"
         return 1
     fi
 }

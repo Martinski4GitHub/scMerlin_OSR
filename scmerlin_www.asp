@@ -272,28 +272,69 @@ function GetTemperatureValue (bandIDstr)
  * -----------------------------------------------------------------*/
 
 let wu_inited      = false;   // captured once
-let wu_baseSys     = 0;       // sys_uptime_now at snapshot
+let wu_baseSys     = 0;       // uptime seconds at snapshot
 let wu_wallStart   = 0;       // epoch seconds at snapshot
 let wu_useFallback = false;   // sticky flag
 
+/* helper ─ turn "DD HH:MM:SS", "D HH:MM:SS" or "HH:MM:SS" into seconds */
+function parseUptimeStr (s) {
+    if (typeof s !== 'string') return NaN;
+    s = s.replace(/\u00A0/g, ' ').trim();
+    if (!s) return NaN;
+
+    const parts = s.split(/\s+/);           // collapse multiple spaces
+    let days = 0, clock = '';
+
+    if (parts.length === 2) {               // "DD HH:MM:SS"
+        days  = parseInt(parts[0], 10);
+        clock = parts[1];
+    } else {                                // "HH:MM:SS"
+        clock = parts[0];
+    }
+
+    const [h, m, sec] = clock.split(':').map(n => parseInt(n, 10));
+    if ([h, m, sec].some(Number.isNaN)) return NaN;
+
+    return days * 86400 + h * 3600 + m * 60 + sec;
+}
+
+function captureBaseUptime () {
+    const nowSec = Math.floor(Date.now() / 1000);
+
+    /* boottime */
+    if (typeof boottime !== 'undefined' && /^\d+$/.test(boottime)) {
+        const bt = parseInt(boottime, 10);
+        if (bt >= 946684800) {
+            return { base: nowSec - bt, wall: nowSec };
+        }
+        return { base: bt, wall: nowSec };
+    }
+
+    /* hidden CGI field */
+    const el = document.getElementById('sys_uptime');
+    if (el && /^\d+$/.test(el.value)) {
+        return { base: parseInt(el.value, 10), wall: nowSec };
+    }
+
+    return null;                            // nothing usable
+}
+
 function update_wanuptime () {
 
-    /* ---- fast path: compute from hidden nvram inputs ---- */
+    /* ---- fast path: compute locally ---- */
     if (!wu_useFallback) {
 
         if (!wu_inited) {
-            const el = document.getElementById('sys_uptime');
-            if (!el)                 { wu_useFallback = true; return update_wanuptime(); }
+            const snap = captureBaseUptime();
+            if (!snap)          { wu_useFallback = true; return update_wanuptime(); }
 
-            wu_baseSys = parseInt(el.value, 10);
-            if (isNaN(wu_baseSys))   { wu_useFallback = true; return update_wanuptime(); }
-
-            wu_wallStart = Math.floor(Date.now() / 1000);
+            wu_baseSys   = snap.base;
+            wu_wallStart = snap.wall;
             wu_inited    = true;
         }
 
-        const nowWall  = Math.floor(Date.now() / 1000);
-        const sysNow   = wu_baseSys + (nowWall - wu_wallStart);
+        const nowWall = Math.floor(Date.now() / 1000);
+        const sysNow  = wu_baseSys + (nowWall - wu_wallStart);
 
         let activeIf = null, upSecs = 0;
 
@@ -309,12 +350,13 @@ function update_wanuptime () {
             if (upSecs > 0) { activeIf = `wan${i}`; break; }
         }
 
+        const td = document.getElementById('wanuptime_td');
+
         if (activeIf) {
             const d = Math.floor(upSecs / 86400);
             const h = Math.floor((upSecs / 3600) % 24);
             const m = Math.floor((upSecs / 60) % 60);
 
-            const td = document.getElementById('wanuptime_td');
             if (td) td.textContent =
                 `(${activeIf}): ${d} days ${h} hrs ${m} mins`;
 
@@ -322,7 +364,9 @@ function update_wanuptime () {
             return;
         }
 
-        wu_useFallback = true;   // no valid data → fall back
+        /* no active interface → show graceful message, then fall back */
+        if (td) td.textContent = 'WAN is down';
+        wu_useFallback = true;
     }
 
     /* ---- AJAX fallback ---- */
@@ -331,18 +375,19 @@ function update_wanuptime () {
         dataType : 'script',
         cache    : false,
         success  : function () {
-            if (typeof wan_uptime_text !== 'undefined') {
-                const td = document.getElementById('wanuptime_td');
-                if (td) td.textContent = wan_uptime_text;
+            const td = document.getElementById('wanuptime_td');
+            if (typeof wan_uptime_text !== 'undefined' && td) {
+                td.textContent = wan_uptime_text;
             }
             setTimeout(update_wanuptime, 3000);
         },
         error    : function () {
+            const td = document.getElementById('wanuptime_td');
+            if (td) td.textContent = 'WAN is down';
             setTimeout(update_wanuptime, 3000);
         }
     });
 }
-
 
 /**----------------------------------------**/
 /** Modified by Martinski W. [2024-Jun-01] **/

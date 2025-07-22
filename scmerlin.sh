@@ -1886,11 +1886,29 @@ _InstallWanEventHook_() {
     esac
 }
 
+_Init_WAN_Uptime_File_()
+{
+    # Already seeded?  Nothing to do.
+    [ -s /tmp/wan_uptime.tmp ] && return 0
+
+    local iface
+    for iface in 0 1; do
+        [ "$(nvram get wan${iface}_state_t)" = "2" ] && {
+            echo "${iface} $(date +%s)" > /tmp/wan_uptime.tmp
+            return 0
+        }
+    done
+
+    return 1   # no usable WAN found
+}
+
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2025-Jul-22] ##
 ##---------------------------------------##
 Get_WAN_Uptime()
 {
+    _Init_WAN_Uptime_File_
+
     local iface upsecs uptime days hours minutes
     local wanup_secs now_secs
     local active_if="" ts_file

@@ -12,9 +12,9 @@
 ## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2025-May-23
+# Last Modified: 2025-Jul-21
 #-----------------------------------------------------
-## Modification by thelonelycoder [2025-May-23] ##
+## Modification by ExtremeFiretop [2025-Jul-21] ##
 # Changed repo paths to OSR, added OSR repo to headers, increased version. 
 
 ##########       Shellcheck directives     ###########
@@ -30,8 +30,8 @@
 ### Start of script variables ###
 readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
-readonly SCM_VERSION="v2.5.31"
-readonly SCRIPT_VERSION="v2.5.31"
+readonly SCM_VERSION="v2.5.40"
+readonly SCRIPT_VERSION="v2.5.40"
 SCRIPT_BRANCH="master"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -1822,6 +1822,111 @@ Get_NVRAM_Usage()
    echo
 }
 
+Get_WAN_Uptime_JS () {
+    local jsfile="/www/ext/scmerlin/wanuptime.js"
+    local ESC="$(printf '\033')"
+    local upmsg
+
+    upmsg="$( Get_WAN_Uptime | sed "s/${ESC}\[[0-9;]*[[:alpha:]]//g" )"
+
+    [ -z "$upmsg" ] && upmsg="WAN uptime: N/A"
+
+    printf "var wan_uptime_text = '%s';\n" "$upmsg" > "$jsfile"
+}
+
+##--------------------------------------------------##
+## Added by ExtremeFiretop [2025-Jul-21] – WAN time ##
+##--------------------------------------------------##
+Get_WAN_Uptime()
+{
+    local iface upsecs uptime days hours minutes
+    local wanup_secs year now_secs infile
+    local active_if="" wan_line month month_num day time_str
+
+    # Abort if both WANs are down #
+    if [ "$(nvram get wan0_state_t)" != "2" ] && [ "$(nvram get wan1_state_t)" != "2" ]
+    then
+        printf "${REDct}WAN is down${CLRct}\n"
+        return 1
+    fi
+
+    # system-uptime: use nvram counter #
+    sys_uptime=$(nvram get sys_uptime_now 2>/dev/null | tr -d '[:space:]')
+    case "$sys_uptime" in ''|*[!0-9]*)
+        printf "${REDct}Unable to read numeric sys_uptime_now from NVRAM${CLRct}\n"
+        return 1
+    esac
+
+    for iface in 0 1; do
+        [ "$(nvram get wan${iface}_state_t)" = "2" ] || continue
+
+        start_off=$(nvram get wan${iface}_uptime 2>/dev/null | tr -d '[:space:]')
+        case "$start_off" in ''|*[!0-9]*) continue ;; esac
+
+        # seconds the WAN has been up **so far** #
+        upsecs=$(( sys_uptime - start_off ))
+        [ "$upsecs" -le 0 ] && continue
+
+        active_if="wan${iface}"
+        break
+    done
+
+    if [ -n "$active_if" ]; then
+        days="$((upsecs/86400))"
+        hours="$((upsecs/3600%24))"
+        minutes="$((upsecs/60%60))"
+        printf "${GRNct}(${active_if}):${CLRct} %s days %s hrs %s mins\n" \
+               "$days" "$hours" "$minutes"
+        return 0
+    fi
+
+    # Fall back to SYSLOG #
+    infile="/tmp/syslog.log"
+    [ -f /tmp/syslog.log-1 ] && infile="/tmp/syslog.log-1 /tmp/syslog.log"
+
+    wan_line="$(grep -hE 'Initial clock set|WAN was restored' $infile 2>/dev/null | tail -n1)"
+    [ -z "$wan_line" ] && { printf "${YLWct}No WAN events in syslog${CLRct}\n"; return 1; }
+
+    # Extract tokens  #
+    set -- $wan_line
+    month="$1"; day="$2"; time_str="$3"
+    day=$(printf "%02d" "$day")
+
+    # Month name to number #
+    case "$month" in
+        Jan) month_num=01 ;; Feb) month_num=02 ;; Mar) month_num=03 ;;
+        Apr) month_num=04 ;; May) month_num=05 ;; Jun) month_num=06 ;;
+        Jul) month_num=07 ;; Aug) month_num=08 ;; Sep) month_num=09 ;;
+        Oct) month_num=10 ;; Nov) month_num=11 ;; Dec) month_num=12 ;;
+        *)   printf "${REDct}Unknown month in syslog${CLRct}\n"; return 1 ;;
+    esac
+
+    year=$(date +%Y)
+    now_secs=$(date +%s)
+
+    wanup_secs=$(date -d "$year-$month_num-$day $time_str" +%s 2>/dev/null)
+    if [ -z "$wanup_secs" ] || [ "$wanup_secs" -gt "$now_secs" ]; then
+        year=$((year - 1))
+        wanup_secs=$(date -d "$year-$month_num-$day $time_str" +%s 2>/dev/null)
+    fi
+
+    # Sanity check the parsed seconds #
+    case "$wanup_secs" in ''|*[!0-9]*)
+        printf "${REDct}Unable to parse WAN-up time${CLRct}\n"
+        return 1 ;;
+    esac
+
+    # Print Final Result # 
+    uptime=$((now_secs - wanup_secs))
+    days="$((uptime/86400))"
+    hours="$((uptime/3600%24))"
+    minutes="$((uptime/60%60))"
+
+    printf "${GRNct}(syslog):${CLRct} %s days %s hrs %s mins\n" \
+           "$days" "$hours" "$minutes"
+    return 0
+}
+
 ScriptHeader()
 {
 	clear
@@ -1915,6 +2020,7 @@ MainMenu()
 	printf "m.    View RAM/memory usage\n"
 	printf "jn.   View internal storage usage [JFFS & NVRAM]\n"
 	printf "cr.   View cron jobs\n"
+	printf "wu.   View WAN uptime\n"
 	printf "t.    View router temperatures\n"
 	printf "w.    List Addon WebUI tab to page mapping\n"
 	printf "r.    Reboot router\n\n"
@@ -2208,6 +2314,14 @@ MainMenu()
 				ScriptHeader
 				Get_Cron_Jobs
 				printf "\\n"
+				PressEnter
+				break
+			;;
+			wu)
+				ScriptHeader
+				printf "${GRNct}WAN Uptime ${CLRct}"
+				Get_WAN_Uptime
+				printf "\n"
 				PressEnter
 				break
 			;;
@@ -2796,6 +2910,10 @@ case "$1" in
 			settingstate="$(echo "$3" | sed "s/${SCRIPT_NAME_LOWER}_NTPcheck//")";
 			settingstate="$(echo "$settingstate" | tr 'A-Z' 'a-z')"
 			NTP_ReadyCheckOption "$settingstate"
+			exit 0
+		elif [ "$2" = "start" ] && [ "$3" = "${SCRIPT_NAME_LOWER}getwanuptime" ]
+		then
+			Get_WAN_Uptime_JS
 			exit 0
 		elif [ "$2" = "start" ] && echo "$3" | grep -qE "^${SCRIPT_NAME_LOWER}_DNSmasqWatchdog"
 		then

@@ -1871,7 +1871,7 @@ Get_WAN_Uptime()
         days="$((upsecs/86400))"
         hours="$((upsecs/3600%24))"
         minutes="$((upsecs/60%60))"
-        printf "${GRNct}WAN uptime (${active_if}):${CLRct} %s days %s hrs %s mins\n" \
+        printf "${GRNct}(${active_if}):${CLRct} %s days %s hrs %s mins\n" \
                "$days" "$hours" "$minutes"
         return 0
     fi
@@ -1914,11 +1914,11 @@ Get_WAN_Uptime()
 
     # Print Final Result # 
     uptime=$((now_secs - wanup_secs))
-    days="$((upsecs/86400))"
-    hours="$((upsecs/3600%24))"
-    minutes="$((upsecs/60%60))"
+    days="$((uptime/86400))"
+    hours="$((uptime/3600%24))"
+    minutes="$((uptime/60%60))"
 
-    printf "${GRNct}WAN uptime (syslog):${CLRct} %s days %s hrs %s mins\n" \
+    printf "${GRNct}(syslog):${CLRct} %s days %s hrs %s mins\n" \
            "$days" "$hours" "$minutes"
     return 0
 }
@@ -2315,6 +2315,7 @@ MainMenu()
 			;;
 			wu)
 				ScriptHeader
+				printf "${GRNct}WAN Uptime ${CLRct}"
 				Get_WAN_Uptime
 				printf "\n"
 				PressEnter

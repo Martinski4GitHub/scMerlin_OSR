@@ -267,22 +267,82 @@ function GetTemperatureValue (bandIDstr)
     return (temperatureVal);
 }
 
-/**---------------------------------------**/
-/** Added by ExtremeFiretop [2025-Jul-21] **/
-/**---------------------------------------**/
-function update_wanuptime(){
-  $.ajax({
-    url: '/ext/scmerlin/wanuptime.js',
-    dataType: 'script',
-    cache: false,                 // always get fresh file
-    error: function(){ setTimeout(update_wanuptime, 3000); },
-    success: function(){
-      if(typeof wan_uptime_text !== 'undefined')
-        document.getElementById('wanuptime_td').innerHTML = wan_uptime_text;
-      setTimeout(update_wanuptime, 3000);
+/* -----------------------------------------------------------------
+ *  update_wanuptime  (nvram‑first, AJAX‑fallback)
+ * -----------------------------------------------------------------*/
+
+let wu_inited      = false;   // captured once
+let wu_baseSys     = 0;       // sys_uptime_now at snapshot
+let wu_wallStart   = 0;       // epoch seconds at snapshot
+let wu_useFallback = false;   // sticky flag
+
+function update_wanuptime () {
+
+    /* ---- fast path: compute from hidden nvram inputs ---- */
+    if (!wu_useFallback) {
+
+        if (!wu_inited) {
+            const el = document.getElementById('sys_uptime');
+            if (!el)                 { wu_useFallback = true; return update_wanuptime(); }
+
+            wu_baseSys = parseInt(el.value, 10);
+            if (isNaN(wu_baseSys))   { wu_useFallback = true; return update_wanuptime(); }
+
+            wu_wallStart = Math.floor(Date.now() / 1000);
+            wu_inited    = true;
+        }
+
+        const nowWall  = Math.floor(Date.now() / 1000);
+        const sysNow   = wu_baseSys + (nowWall - wu_wallStart);
+
+        let activeIf = null, upSecs = 0;
+
+        for (let i = 0; i <= 1; i++) {
+            const st = document.getElementById(`wan${i}_state_t`);
+            if (!st || st.value !== '2') continue;
+
+            const upEl = document.getElementById(`wan${i}_uptime`);
+            const off  = upEl ? parseInt(upEl.value, 10) : NaN;
+            if (isNaN(off)) continue;
+
+            upSecs = sysNow - off;
+            if (upSecs > 0) { activeIf = `wan${i}`; break; }
+        }
+
+        if (activeIf) {
+            const d = Math.floor(upSecs / 86400);
+            const h = Math.floor((upSecs / 3600) % 24);
+            const m = Math.floor((upSecs / 60) % 60);
+
+            const td = document.getElementById('wanuptime_td');
+            if (td) td.textContent =
+                `(${activeIf}): ${d} days ${h} hrs ${m} mins`;
+
+            setTimeout(update_wanuptime, 60000);   // next tick in 60 s
+            return;
+        }
+
+        wu_useFallback = true;   // no valid data → fall back
     }
-  });
+
+    /* ---- AJAX fallback (legacy behaviour) ---- */
+    $.ajax({
+        url      : '/ext/scmerlin/wanuptime.js',
+        dataType : 'script',
+        cache    : false,
+        success  : function () {
+            if (typeof wan_uptime_text !== 'undefined') {
+                const td = document.getElementById('wanuptime_td');
+                if (td) td.textContent = wan_uptime_text;
+            }
+            setTimeout(update_wanuptime, 3000);
+        },
+        error    : function () {
+            setTimeout(update_wanuptime, 3000);
+        }
+    });
 }
+
 
 /**----------------------------------------**/
 /** Modified by Martinski W. [2024-Jun-01] **/
@@ -359,6 +419,11 @@ var arrayproclistlines=[],sortnameproc="CPU%",sortdirproc="desc",arraycronjobs=[
 <input type="hidden" name="vpnc3_desc" value="<% nvram_get("vpn_client3_desc"); %>">
 <input type="hidden" name="vpnc4_desc" value="<% nvram_get("vpn_client4_desc"); %>">
 <input type="hidden" name="vpnc5_desc" value="<% nvram_get("vpn_client5_desc"); %>">
+<input type="hidden" id="wan0_state_t" value="<% nvram_get("wan0_state_t"); %>">
+<input type="hidden" id="wan1_state_t" value="<% nvram_get("wan1_state_t"); %>">
+<input type="hidden" id="wan0_uptime"  value="<% nvram_get("wan0_uptime");  %>">
+<input type="hidden" id="wan1_uptime"  value="<% nvram_get("wan1_uptime");  %>">
+<input type="hidden" id="sys_uptime" value="<% nvram_get("sys_uptime_now"); %>">
 <input type="hidden" name="amng_custom" id="amng_custom" value="">
 <table class="content" align="center" cellpadding="0" cellspacing="0">
 <tr>

@@ -30,7 +30,7 @@ readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
 readonly SCM_VERSION="v2.5.40"
 readonly SCRIPT_VERSION="v2.5.40"
-readonly SCRIPT_VERSTAG="25072308"
+readonly SCRIPT_VERSTAG="25072312"
 SCRIPT_BRANCH="develop"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -2994,9 +2994,9 @@ then
 	exit 0
 fi
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Jul-22] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Jul-23] ##
+##----------------------------------------##
 case "$1" in
 	install)
 		Check_Lock
@@ -3108,19 +3108,22 @@ case "$1" in
 		exit 0
 	;;
 	wan_event)
-		iface="$2"   # 0 = primary WAN, 1 = secondary #
+		ifaceNumWAN="$2"   # 0 = primary WAN, 1 = secondary WAN #
 		if [ "$3" = "connected" ]
-        then
-			if [ -s /tmp/wan_uptime.tmp ]; then
-				read -r ts < /tmp/wan_uptime.tmp
-			else
-				ts="$(date +%s)"
+		then
+			if [ ! -s /tmp/wan_uptime.tmp ]
+			then timeSecs="$(date +%s)"
+			else read ifaceNum timeSecs < /tmp/wan_uptime.tmp
 			fi
-			echo "$iface $ts" > /tmp/wan_uptime.tmp  # Persist start-time #
-		elif [ "$2" = "disconnected" ] || [ "$2" = "stopped" ] || \
-			 [ "$2" = "disabled" ]
-        then
-			rm -f /tmp/wan_uptime.tmp /tmp/wan_status.tmp   # remove leftovers #
+			# Persist start-time #
+			echo "$ifaceNumWAN $timeSecs" > /tmp/wan_uptime.tmp
+		##
+		elif [ "$3" = "init" ]   || \
+		     [ "$3" = "stopped" ] || \
+		     [ "$3" = "disabled" ] || \
+		     [ "$3" = "disconnected" ]
+		then
+			rm -f /tmp/wan_uptime.tmp /tmp/wan_status.tmp
 		fi
 		exit 0
 	;;

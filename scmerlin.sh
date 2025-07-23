@@ -1166,7 +1166,7 @@ Auto_Startup()
 				sed -i -e '/# '"${SCRIPT_NAME}[$]$"'/d' /jffs/scripts/services-start
 
 				STARTUPLINECOUNT=$(grep -i -c '# '"$SCRIPT_NAME$" /jffs/scripts/services-start)
-				STARTUPLINECOUNTEX=$(grep -i -cx "/jffs/scripts/$SCRIPT_NAME_LOWER startup"' & # '"$SCRIPT_NAME$" /jffs/scripts/services-start)
+				STARTUPLINECOUNTEX=$(grep -cx "/jffs/scripts/$SCRIPT_NAME_LOWER startup"' & # '"$SCRIPT_NAME$" /jffs/scripts/services-start)
 
 				if [ "$STARTUPLINECOUNT" -gt 1 ] || { [ "$STARTUPLINECOUNTEX" -eq 0 ] && [ "$STARTUPLINECOUNT" -gt 0 ]; }; then
 					sed -i -e '/# '"$SCRIPT_NAME$"'/d' /jffs/scripts/services-start
@@ -1856,8 +1856,8 @@ _InstallWanEventHook_()
         create)
             if [ -f "$hookFile" ]
             then
-                STARTUPLINECOUNT="$(grep -ic "$hookPattern" "$hookFile")"
-                STARTUPLINECOUNTEX="$(grep -icx "$hookLine" "$hookFile")"
+                STARTUPLINECOUNT="$(grep -c "$hookPattern" "$hookFile")"
+                STARTUPLINECOUNTEX="$(grep -cx "$hookLine" "$hookFile")"
 
                 if [ "$STARTUPLINECOUNT" -gt 1 ] || \
                    { [ "$STARTUPLINECOUNTEX" -eq 0 ] && [ "$STARTUPLINECOUNT" -gt 0 ]; }

@@ -1897,12 +1897,12 @@ _InstallWanEventHook_()
     esac
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Jul-23] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-Jul-23] ##
+##------------------------------------------##
 _Init_WAN_Uptime_File_()
 {
-    # Already seeded?  Nothing to do #
+    # Already seeded? Nothing to do #
     [ -s /tmp/wan_uptime.tmp ] && return 0
 
     local ifaceNum
@@ -1911,24 +1911,24 @@ _Init_WAN_Uptime_File_()
         if [ "$(nvram get "wan${ifaceNum}_primary")" = "1" ] && \
            [ "$(nvram get "wan${ifaceNum}_state_t")" = "2" ]
         then
-            echo "${ifaceNum} $(date +%s)" > /tmp/wan_uptime.tmp
+            echo "${ifaceNum} $(date +%s) SEED" > /tmp/wan_uptime.tmp
             sleep 1
             return 0
         fi
     done
 
-    return 1  # no usable WAN found #
+    return 1  # no usable WAN found
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2025-Jul-22] ##
-##---------------------------------------##
+##-------------------------------------------##
+## Modified by ExtremeFiretop [2025-Jul-23] ##
+##-----------------------------------------##
 Get_WAN_Uptime()
 {
     _Init_WAN_Uptime_File_
 
     local ifaceNum  upsecs  uptime  days  hours  minutes
-    local wanup_secs  now_secs
+    local wanup_secs  now_secs  tag approx_flag
     local active_if=""  ts_file
 
     # Abort if both WANs are down #
@@ -1966,6 +1966,7 @@ Get_WAN_Uptime()
         [ "$upsecs" -le 0 ] && continue
 
         active_if="wan${ifaceNum}"
+        approx_flag=""
         break
     done
 
@@ -1982,7 +1983,7 @@ Get_WAN_Uptime()
     # Triggered only if the NVRAM loop above failed to set $active_if #
     if [ -z "$active_if" ] && [ -s /tmp/wan_uptime.tmp ]
     then
-        read ifaceNum wanup_secs < /tmp/wan_uptime.tmp
+        read ifaceNum wanup_secs tag < /tmp/wan_uptime.tmp
 
         case "$ifaceNum" in
             0) active_if="wan0" ;;
@@ -1997,6 +1998,7 @@ Get_WAN_Uptime()
         if [ -n "$active_if" ] && [ "$wanup_secs" -lt "$now_secs" ]
         then
             upsecs="$(( now_secs - wanup_secs ))"
+            approx_flag="$tag"   # will be "SEED"
         else
             active_if=""
         fi
@@ -2008,8 +2010,12 @@ Get_WAN_Uptime()
         days="$((upsecs/86400))"
         hours="$((upsecs/3600%24))"
         minutes="$((upsecs/60%60))"
-        printf "${GRNct}(${active_if}):${CLRct} %s days %s hrs %s mins\n" \
-               "$days" "$hours" "$minutes"
+
+        # If we seeded at boot, make that clear in the output
+        [ "$approx_flag" = "SEED" ] && approx_flag=" (firstrun-seed)" || approx_flag=""
+
+        printf "${GRNct}(${active_if}):${CLRct} %s days %s hrs %s mins%s\n" \
+               "$days" "$hours" "$minutes" "$approx_flag
         return 0
     else
         printf "${REDct}No WAN events detected${CLRct}\n"

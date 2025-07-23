@@ -12,7 +12,7 @@
 ## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2025-Jul-22
+# Last Modified: 2025-Jul-23
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -30,7 +30,7 @@ readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
 readonly SCM_VERSION="v2.5.40"
 readonly SCRIPT_VERSION="v2.5.40"
-readonly SCRIPT_VERSTAG="25072223"
+readonly SCRIPT_VERSTAG="25072308"
 SCRIPT_BRANCH="develop"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -1827,7 +1827,8 @@ Get_NVRAM_Usage()
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2025-Jul-22] ##
 ##---------------------------------------##
-Get_WAN_Uptime_JS () {
+Get_WAN_Uptime_JS()
+{
     local jsfile="/www/ext/scmerlin/wanuptime.js"
     local ESC="$(printf '\033')"
     local upmsg
@@ -1839,71 +1840,84 @@ Get_WAN_Uptime_JS () {
     printf "var wan_uptime_text = '%s';\n" "$upmsg" > "$jsfile"
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2025-Jul-22] ##
-##---------------------------------------##
-_InstallWanEventHook_() {
-    local action="$1"                       # create | delete
-    local hook="/jffs/scripts/wan-event"
+##----------------------------------------##
+## Modified by Martinski W. [2025-Jul-23] ##
+##----------------------------------------##
+_InstallWanEventHook_()
+{
+    local action="$1"
+    local hookFile="/jffs/scripts/wan-event"
+    local hookPattern="#Added by $SCRIPT_NAME#"
 
-    # Exact line we want present in wan-event
-    local hookLine='sh /jffs/scripts/scmerlin wan_event "$@" & #Added by scMerlin#'
-
-    # Pattern good for grep/sed
-    local hookPattern='#Added by scMerlin#'
+    # Exact line we want present in wan-event #
+    local hookLine="/jffs/scripts/$SCRIPT_NAME_LOWER"' wan_event "$@" & '"$hookPattern"
 
     case "$action" in
-    create)
-        if [ ! -f "$hook" ]; then
-            {
-                echo '#!/bin/sh'
-                echo "$hookLine"
-            } >"$hook"
-            Say "wan-event script created at '$hook'."
-        elif ! grep -qE "$hookPattern" "$hook"; then
-            echo "$hookLine" >>"$hook"
-            Say "scMerlin hook appended to existing '$hook'."
-        else
-            Say "scMerlin hook already present in '$hook'."
-        fi
-        chmod 0755 "$hook"
-        ;;
-    delete)
-        if [ ! -f "$hook" ]; then
-            Say "wan-event script '$hook' does not exist."
-            return 1
-        fi
+        create)
+            if [ -f "$hookFile" ]
+            then
+                STARTUPLINECOUNT="$(grep -ic "$hookPattern" "$hookFile")"
+                STARTUPLINECOUNTEX="$(grep -icx "$hookLine" "$hookFile")"
 
-        if grep -qE "$hookPattern" "$hook"; then
-            # Delete the single matching line
-            sed -i "\|$hookPattern|d" "$hook"
-            Say "scMerlin hook removed from '$hook'."
-        else
-            Say "scMerlin hook not found in '$hook'."
-        fi
-        ;;
-    *)
-        Say "Usage: _InstallWanEventHook_ create|delete"
-        return 1
-        ;;
+                if [ "$STARTUPLINECOUNT" -gt 1 ] || \
+                   { [ "$STARTUPLINECOUNTEX" -eq 0 ] && [ "$STARTUPLINECOUNT" -gt 0 ]; }
+                then
+                    sed -i "/${hookPattern}/d" "$hookFile"
+                    STARTUPLINECOUNTEX=0
+				fi
+
+                if [ "$STARTUPLINECOUNTEX" -eq 0 ]
+                then
+                    echo "$hookLine" >> "$hookFile"
+                    Print_Output true "scMerlin hook appended to existing '$hookFile'." "$PASS"
+                fi
+            else
+                {
+                    echo '#!/bin/sh' ; echo
+                    echo "$hookLine"
+                } > "$hookFile"
+                Print_Output true "wan-event script created at '$hookFile'." "$PASS"
+            fi
+            chmod 0755 "$hookFile"
+            ;;
+        delete)
+            if [ -f "$hookFile" ]
+            then
+                if grep -qE "$hookPattern" "$hookFile"
+                then
+                    # Delete the single matching line #
+                    sed -i "\|$hookPattern|d" "$hookFile"
+                    Print_Output true "scMerlin hook removed from '$hookFile'." "$PASS"
+                fi
+            fi
+            ;;
+        *)
+            return 1
+            ;;
     esac
 }
 
+##----------------------------------------##
+## Modified by Martinski W. [2025-Jul-23] ##
+##----------------------------------------##
 _Init_WAN_Uptime_File_()
 {
-    # Already seeded?  Nothing to do.
+    # Already seeded?  Nothing to do #
     [ -s /tmp/wan_uptime.tmp ] && return 0
 
-    local iface
-    for iface in 0 1; do
-        [ "$(nvram get wan${iface}_state_t)" = "2" ] && {
-            echo "${iface} $(date +%s)" > /tmp/wan_uptime.tmp
+    local ifaceNum
+    for ifaceNum in 0 1
+    do
+        if [ "$(nvram get "wan${ifaceNum}_primary")" = "1" ] && \
+           [ "$(nvram get "wan${ifaceNum}_state_t")" = "2" ]
+        then
+            echo "${ifaceNum} $(date +%s)" > /tmp/wan_uptime.tmp
             sleep 1
             return 0
-        }
+        fi
     done
 
-    return 1   # no usable WAN found
+    return 1  # no usable WAN found #
 }
 
 ##---------------------------------------##
@@ -1913,9 +1927,9 @@ Get_WAN_Uptime()
 {
     _Init_WAN_Uptime_File_
 
-    local iface upsecs uptime days hours minutes
-    local wanup_secs now_secs
-    local active_if="" ts_file
+    local ifaceNum  upsecs  uptime  days  hours  minutes
+    local wanup_secs  now_secs
+    local active_if=""  ts_file
 
     # Abort if both WANs are down #
     if [ "$(nvram get wan0_state_t)" != "2" ] && [ "$(nvram get wan1_state_t)" != "2" ]
@@ -1925,11 +1939,12 @@ Get_WAN_Uptime()
     fi
 
     # the monotonic counter from /proc/uptime (strip decimal) #
-    sys_uptime=$(cut -d'.' -f1 /proc/uptime 2>/dev/null)
+    sys_uptime="$(cut -d'.' -f1 /proc/uptime 2>/dev/null)"
 
     # Fall back to the NVRAM snapshot if /proc/uptime was empty/unreadable #
-    if [ -z "$sys_uptime" ]; then
-        sys_uptime=$(nvram get sys_uptime_now 2>/dev/null | tr -d '[:space:]')
+    if [ -z "$sys_uptime" ]
+    then
+        sys_uptime="$(nvram get sys_uptime_now 2>/dev/null | tr -d '[:space:]')"
     fi
 
     # Validate that we now have a purely numeric value #
@@ -1940,20 +1955,22 @@ Get_WAN_Uptime()
             ;;
     esac
 
-    for iface in 0 1; do
-        [ "$(nvram get wan${iface}_state_t)" = "2" ] || continue
+    for ifaceNum in 0 1
+    do
+        [ "$(nvram get "wan${ifaceNum}_state_t")" = "2" ] || continue
 
-        start_off=$(nvram get wan${iface}_uptime 2>/dev/null | tr -d '[:space:]')
+        start_off="$(nvram get "wan${ifaceNum}_uptime" 2>/dev/null | tr -d '[:space:]')"
         case "$start_off" in ''|*[!0-9]*) continue ;; esac
 
-        upsecs=$(( sys_uptime - start_off ))
+        upsecs="$(( sys_uptime - start_off ))"
         [ "$upsecs" -le 0 ] && continue
 
-        active_if="wan${iface}"
+        active_if="wan${ifaceNum}"
         break
     done
 
-    if [ -n "$active_if" ]; then
+    if [ -n "$active_if" ]
+    then
         days="$((upsecs/86400))"
         hours="$((upsecs/3600%24))"
         minutes="$((upsecs/60%60))"
@@ -1962,29 +1979,32 @@ Get_WAN_Uptime()
         return 0
     fi
 
-    # Triggered only if the NVRAM loop above failed to set $active_if.
-    if [ -z "$active_if" ] && [ -s /tmp/wan_uptime.tmp ]; then
-        read iface wanup_secs </tmp/wan_uptime.tmp
+    # Triggered only if the NVRAM loop above failed to set $active_if #
+    if [ -z "$active_if" ] && [ -s /tmp/wan_uptime.tmp ]
+    then
+        read ifaceNum wanup_secs < /tmp/wan_uptime.tmp
 
-        case "$iface" in
+        case "$ifaceNum" in
             0) active_if="wan0" ;;
             1) active_if="wan1" ;;
-            *) active_if="" ;;           # unknown iface ⇒ ignore file
+            *) active_if="" ;;  # unknown ifaceNum = ignore file #
         esac
 
         # Sanity check the parsed seconds #
-        case "$wanup_secs" in ''|*[!0-9]*) active_if="";; esac
-        now_secs=$(date +%s)
+        case "$wanup_secs" in ''|*[!0-9]*) active_if="" ;; esac
+        now_secs="$(date +%s)"
 
-        if [ -n "$active_if" ] && [ "$wanup_secs" -lt "$now_secs" ]; then
-            upsecs=$(( now_secs - wanup_secs ))
+        if [ -n "$active_if" ] && [ "$wanup_secs" -lt "$now_secs" ]
+        then
+            upsecs="$(( now_secs - wanup_secs ))"
         else
             active_if=""
         fi
     fi
 
     # Print Final Result #
-    if [ -n "$active_if" ]; then
+    if [ -n "$active_if" ]
+    then
         days="$((upsecs/86400))"
         hours="$((upsecs/3600%24))"
         minutes="$((upsecs/60%60))"
@@ -2720,8 +2740,8 @@ Menu_Uninstall()
 	Print_Output true "Removing $SCRIPT_NAME..." "$PASS"
 	Shortcut_Script delete
 	Auto_Startup delete 2>/dev/null
-	_InstallWanEventHook_ delete 2>/dev/null
 	Auto_ServiceEvent delete 2>/dev/null
+	_InstallWanEventHook_ delete 2>/dev/null
 	NTP_BootWatchdog disable
 	NTP_ReadyCheckOption delete
 	TailTaintDNSmasq disable
@@ -2800,8 +2820,8 @@ WAN_IsConnected()
    local retCode=1
    for iFaceNum in 0 1
    do
-       if [ "$(nvram get wan${iFaceNum}_primary)" -eq 1 ] && \
-          [ "$(nvram get wan${iFaceNum}_state_t)" -eq 2 ]
+       if [ "$(nvram get "wan${iFaceNum}_primary")" -eq 1 ] && \
+          [ "$(nvram get "wan${iFaceNum}_state_t")" -eq 2 ]
        then retCode=0 ; break ; fi
    done
    return "$retCode"
@@ -2965,8 +2985,8 @@ then
 	NTP_Ready
 	Shortcut_Script create
 	Auto_Startup create 2>/dev/null
-	_InstallWanEventHook_ create 2>/dev/null
 	Auto_ServiceEvent create 2>/dev/null
+	_InstallWanEventHook_ create 2>/dev/null
 	Process_Upgrade
 	_CheckFor_WebGUI_Page_
 	ScriptHeader
@@ -2993,23 +3013,19 @@ case "$1" in
 			settingstate="$(echo "$3" | sed "s/${SCRIPT_NAME_LOWER}_NTPwatchdog//")";
 			settingstate="$(echo "$settingstate" | tr 'A-Z' 'a-z')"
 			NTP_BootWatchdog "$settingstate"
-			exit 0
 		elif [ "$2" = "start" ] && echo "$3" | grep -qE "^${SCRIPT_NAME_LOWER}_NTPcheck"
 		then
 			settingstate="$(echo "$3" | sed "s/${SCRIPT_NAME_LOWER}_NTPcheck//")";
 			settingstate="$(echo "$settingstate" | tr 'A-Z' 'a-z')"
 			NTP_ReadyCheckOption "$settingstate"
-			exit 0
 		elif [ "$2" = "start" ] && [ "$3" = "${SCRIPT_NAME_LOWER}getwanuptime" ]
 		then
 			Get_WAN_Uptime_JS
-			exit 0
 		elif [ "$2" = "start" ] && echo "$3" | grep -qE "^${SCRIPT_NAME_LOWER}_DNSmasqWatchdog"
 		then
 			settingstate="$(echo "$3" | sed "s/${SCRIPT_NAME_LOWER}_DNSmasqWatchdog//")";
 			settingstate="$(echo "$settingstate" | tr 'A-Z' 'a-z')"
 			TailTaintDNSmasq "$settingstate"
-			exit 0
 		elif [ "$2" = "start" ] && echo "$3" | grep -qE "^${SCRIPT_NAME_LOWER}servicerestart"
 		then
 			rm -f "$SCRIPT_WEB_DIR/detect_service.js"
@@ -3072,41 +3088,39 @@ case "$1" in
 				service restart_"$srvname" >/dev/null 2>&1
 				echo 'var servicestatus = "Done";' > "$SCRIPT_WEB_DIR/detect_service.js"
 			fi
-			exit 0
-		elif [ "$2" = "start" ] && [ "$3" = "${SCRIPT_NAME_LOWER}checkupdate" ]; then
+		elif [ "$2" = "start" ] && [ "$3" = "${SCRIPT_NAME_LOWER}checkupdate" ]
+		then
 			Update_Check
-			exit 0
-		elif [ "$2" = "start" ] && [ "$3" = "${SCRIPT_NAME_LOWER}doupdate" ]; then
+		elif [ "$2" = "start" ] && [ "$3" = "${SCRIPT_NAME_LOWER}doupdate" ]
+		then
 			Update_Version force unattended
-			exit 0
-		elif [ "$2" = "start" ] && [ "$3" = "${SCRIPT_NAME_LOWER}getaddonpages" ]; then
+		elif [ "$2" = "start" ] && [ "$3" = "${SCRIPT_NAME_LOWER}getaddonpages" ]
+		then
 			rm -f /tmp/addonwebpages.tmp
 			sleep 3
 			Get_Addon_Pages
-			exit 0
-		elif [ "$2" = "start" ] && [ "$3" = "${SCRIPT_NAME_LOWER}getcronjobs" ]; then
+		elif [ "$2" = "start" ] && [ "$3" = "${SCRIPT_NAME_LOWER}getcronjobs" ]
+		then
 			rm -f /tmp/scmcronjobs.tmp
 			sleep 3
 			Get_Cron_Jobs
-			exit 0
 		fi
 		exit 0
 	;;
 	wan_event)
-		iface="$2"           # 0 = primary WAN, 1 = secondary
-		if [ "$3" = "connected" ]; then
+		iface="$2"   # 0 = primary WAN, 1 = secondary #
+		if [ "$3" = "connected" ]
+        then
 			if [ -s /tmp/wan_uptime.tmp ]; then
-				read -r ts </tmp/wan_uptime.tmp
+				read -r ts < /tmp/wan_uptime.tmp
 			else
-				ts=$(date +%s)
+				ts="$(date +%s)"
 			fi
-			echo "$iface $ts" >/tmp/wan_uptime.tmp       # Persist start-time
-			exit 0
+			echo "$iface $ts" > /tmp/wan_uptime.tmp  # Persist start-time #
 		elif [ "$2" = "disconnected" ] || [ "$2" = "stopped" ] || \
-			[ "$2" = "disabled" ]; then
-
-			rm -f /tmp/wan_uptime.tmp /tmp/wan_status.tmp   # remove leftovers
-			exit 0
+			 [ "$2" = "disabled" ]
+        then
+			rm -f /tmp/wan_uptime.tmp /tmp/wan_status.tmp   # remove leftovers #
 		fi
 		exit 0
 	;;

@@ -1897,12 +1897,12 @@ _InstallWanEventHook_()
     esac
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Jul-23] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-Jul-23] ##
+##------------------------------------------##
 _Init_WAN_Uptime_File_()
 {
-    # Already seeded? Nothing to do
+    # Already seeded? Nothing to do #
     [ -s /tmp/wan_uptime.tmp ] && return 0
 
     local ifaceNum
@@ -1920,9 +1920,9 @@ _Init_WAN_Uptime_File_()
     return 1  # no usable WAN found
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2025-Jul-22] ##
-##---------------------------------------##
+##-------------------------------------------##
+## Modified by ExtremeFiretop [2025-Jul-23] ##
+##-----------------------------------------##
 Get_WAN_Uptime()
 {
     _Init_WAN_Uptime_File_

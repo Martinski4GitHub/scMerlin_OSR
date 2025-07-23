@@ -30,7 +30,7 @@ readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
 readonly SCM_VERSION="v2.5.40"
 readonly SCRIPT_VERSION="v2.5.40"
-readonly SCRIPT_VERSTAG="25072302"
+readonly SCRIPT_VERSTAG="25072308"
 SCRIPT_BRANCH="develop"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -1908,7 +1908,7 @@ _Init_WAN_Uptime_File_()
     local ifaceNum
     for ifaceNum in 0 1
     do
-        if [ "$(nvram get "wan${iFaceNum}_primary")" = "1" ] && \
+        if [ "$(nvram get "wan${ifaceNum}_primary")" = "1" ] && \
            [ "$(nvram get "wan${ifaceNum}_state_t")" = "2" ]
         then
             echo "${ifaceNum} $(date +%s)" > /tmp/wan_uptime.tmp

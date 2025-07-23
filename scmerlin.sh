@@ -12,9 +12,8 @@
 ## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
-## Modification by ExtremeFiretop [2025-Jul-22] ##
+# Last Modified: 2025-Jul-22
 #-----------------------------------------------------
-# Changed repo paths to OSR, added OSR repo to headers, increased version. 
 
 ##########       Shellcheck directives     ###########
 # shellcheck disable=SC2016
@@ -31,7 +30,8 @@ readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
 readonly SCM_VERSION="v2.5.40"
 readonly SCRIPT_VERSION="v2.5.40"
-SCRIPT_BRANCH="master"
+readonly SCRIPT_VERSTAG="25072223"
+SCRIPT_BRANCH="develop"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
 readonly SCRIPT_WEBPAGE_DIR="$(readlink -f /www/user)"
@@ -76,6 +76,7 @@ readonly CLRct="\e[0m"
 readonly REDct="\e[1;31m"
 readonly GRNct="\e[1;32m"
 readonly YLWct="\e[1;33m"
+readonly MGNTct="\e[1;35m"
 readonly BOLDUNDERLN="\e[1;4m"
 
 ##-------------------------------------##
@@ -90,6 +91,8 @@ readonly webPageSiteMpRegExp="${webPageLineTabExp}\"Sitemap\"\},"
 readonly webPageScriptRegExp="${webPageLineTabExp}\"$SCRIPT_NAME\"\},"
 readonly BEGIN_MenuAddOnsTag="/\*\*BEGIN:_AddOns_\*\*/"
 readonly ENDIN_MenuAddOnsTag="/\*\*ENDIN:_AddOns_\*\*/"
+readonly branchx_TAG="Branch: $SCRIPT_BRANCH"
+readonly version_TAG="${SCRIPT_VERSION}_${SCRIPT_VERSTAG}"
 
 ##-------------------------------------##
 ## Added by Martinski W. [2025-May-17] ##
@@ -2006,7 +2009,7 @@ ScriptHeader()
 	printf "${BOLD}##   \__ \| (__ | |  | ||  __/| |   | || || | | |   ##${CLEARFORMAT}\\n"
 	printf "${BOLD}##   |___/ \___||_|  |_| \___||_|   |_||_||_| |_|   ##${CLEARFORMAT}\\n"
 	printf "${BOLD}##                                                  ##${CLEARFORMAT}\\n"
-	printf "${BOLD}##              %9s on %-18s     ##${CLEARFORMAT}\n" "$SCRIPT_VERSION" "$ROUTER_MODEL"
+	printf "${BOLD}##             %9s on %-18s      ##${CLEARFORMAT}\n" "$SCRIPT_VERSION" "$ROUTER_MODEL"
 	printf "${BOLD}##                                                  ##${CLEARFORMAT}\\n"
 	printf "${BOLD}##       https://github.com/AMTM-OSR/scMerlin       ##${CLEARFORMAT}\\n"
 	printf "${BOLD}## Forked from: https://github.com/jackyaz/scMerlin ##${CLEARFORMAT}\\n"
@@ -2896,10 +2899,13 @@ Entware_Ready()
 	fi
 }
 
+##----------------------------------------##
+## Modified by Martinski W. [2025-Jul-20] ##
+##----------------------------------------##
 Show_About()
 {
+	printf "About ${MGNTct}${SCRIPT_VERS_INFO}${CLRct}\n"
 	cat << EOF
-About
   $SCRIPT_NAME allows you to easily control the most common
   services/scripts on your router. scMerlin also augments your
   router's WebUI with a Sitemap and dynamic submenus for the
@@ -2919,8 +2925,12 @@ EOF
 }
 
 ### function based on @dave14305's FlexQoS show_help function ###
+##----------------------------------------##
+## Modified by Martinski W. [2025-Jul-20] ##
+##----------------------------------------##
 Show_Help()
 {
+	printf "HELP ${MGNTct}${SCRIPT_VERS_INFO}${CLRct}\n"
 	cat << EOF
 Available commands:
   $SCRIPT_NAME_LOWER about            explains functionality
@@ -2929,11 +2939,19 @@ Available commands:
   $SCRIPT_NAME_LOWER startup force    runs startup actions such as mount WebUI tab
   $SCRIPT_NAME_LOWER install          installs script
   $SCRIPT_NAME_LOWER uninstall        uninstalls script
-  $SCRIPT_NAME_LOWER develop          switch to development branch
-  $SCRIPT_NAME_LOWER stable           switch to stable branch
+  $SCRIPT_NAME_LOWER develop          switch to development branch version
+  $SCRIPT_NAME_LOWER stable           switch to stable/production branch version
 EOF
 	printf "\n"
 }
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Jul-20] ##
+##-------------------------------------##
+if [ "$SCRIPT_BRANCH" = "master" ]
+then SCRIPT_VERS_INFO="[$branchx_TAG]"
+else SCRIPT_VERS_INFO="[$version_TAG, $branchx_TAG]"
+fi
 
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2025-Jul-22] ##

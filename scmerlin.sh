@@ -2008,8 +2008,12 @@ Get_WAN_Uptime()
         days="$((upsecs/86400))"
         hours="$((upsecs/3600%24))"
         minutes="$((upsecs/60%60))"
-        printf "${GRNct}(${active_if}):${CLRct} %s days %s hrs %s mins\n" \
-               "$days" "$hours" "$minutes"
+
+        # If we seeded at boot, make that clear in the output
+        [ "$approx_flag" = "SEED" ] && approx_flag=" (firstrun-seed)" || approx_flag=""
+
+        printf "${GRNct}(${active_if}):${CLRct} %s days %s hrs %s mins%s\n" \
+               "$days" "$hours" "$minutes" "$approx_flag"
         return 0
     else
         printf "${REDct}No WAN events detected${CLRct}\n"

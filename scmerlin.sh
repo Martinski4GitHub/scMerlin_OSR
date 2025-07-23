@@ -1824,6 +1824,179 @@ Get_NVRAM_Usage()
    echo
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2025-Jul-22] ##
+##---------------------------------------##
+Get_WAN_Uptime_JS () {
+    local jsfile="/www/ext/scmerlin/wanuptime.js"
+    local ESC="$(printf '\033')"
+    local upmsg
+
+    upmsg="$( Get_WAN_Uptime | sed "s/${ESC}\[[0-9;]*[[:alpha:]]//g" )"
+
+    [ -z "$upmsg" ] && upmsg="WAN uptime: N/A"
+
+    printf "var wan_uptime_text = '%s';\n" "$upmsg" > "$jsfile"
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2025-Jul-22] ##
+##---------------------------------------##
+_InstallWanEventHook_() {
+    local action="$1"                       # create | delete
+    local hook="/jffs/scripts/wan-event"
+
+    # Exact line we want present in wan-event
+    local hookLine='sh /jffs/scripts/scmerlin wan_event "$@" & #Added by scMerlin#'
+
+    # Pattern good for grep/sed
+    local hookPattern='#Added by scMerlin#'
+
+    case "$action" in
+    create)
+        if [ ! -f "$hook" ]; then
+            {
+                echo '#!/bin/sh'
+                echo "$hookLine"
+            } >"$hook"
+            Say "wan-event script created at '$hook'."
+        elif ! grep -qE "$hookPattern" "$hook"; then
+            echo "$hookLine" >>"$hook"
+            Say "scMerlin hook appended to existing '$hook'."
+        else
+            Say "scMerlin hook already present in '$hook'."
+        fi
+        chmod 0755 "$hook"
+        ;;
+    delete)
+        if [ ! -f "$hook" ]; then
+            Say "wan-event script '$hook' does not exist."
+            return 1
+        fi
+
+        if grep -qE "$hookPattern" "$hook"; then
+            # Delete the single matching line
+            sed -i "\|$hookPattern|d" "$hook"
+            Say "scMerlin hook removed from '$hook'."
+        else
+            Say "scMerlin hook not found in '$hook'."
+        fi
+        ;;
+    *)
+        Say "Usage: _InstallWanEventHook_ create|delete"
+        return 1
+        ;;
+    esac
+}
+
+_Init_WAN_Uptime_File_()
+{
+    # Already seeded?  Nothing to do.
+    [ -s /tmp/wan_uptime.tmp ] && return 0
+
+    local iface
+    for iface in 0 1; do
+        [ "$(nvram get wan${iface}_state_t)" = "2" ] && {
+            echo "${iface} $(date +%s)" > /tmp/wan_uptime.tmp
+            sleep 1
+            return 0
+        }
+    done
+
+    return 1   # no usable WAN found
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2025-Jul-22] ##
+##---------------------------------------##
+Get_WAN_Uptime()
+{
+    _Init_WAN_Uptime_File_
+
+    local iface upsecs uptime days hours minutes
+    local wanup_secs now_secs
+    local active_if="" ts_file
+
+    # Abort if both WANs are down #
+    if [ "$(nvram get wan0_state_t)" != "2" ] && [ "$(nvram get wan1_state_t)" != "2" ]
+    then
+        printf "${REDct}WAN is down${CLRct}\n"
+        return 1
+    fi
+
+    # the monotonic counter from /proc/uptime (strip decimal) #
+    sys_uptime=$(cut -d'.' -f1 /proc/uptime 2>/dev/null)
+
+    # Fall back to the NVRAM snapshot if /proc/uptime was empty/unreadable #
+    if [ -z "$sys_uptime" ]; then
+        sys_uptime=$(nvram get sys_uptime_now 2>/dev/null | tr -d '[:space:]')
+    fi
+
+    # Validate that we now have a purely numeric value #
+    case "$sys_uptime" in
+        ''|*[!0-9]*)
+            printf "${REDct}Unable to determine numeric system uptime${CLRct}\n"
+            return 1
+            ;;
+    esac
+
+    for iface in 0 1; do
+        [ "$(nvram get wan${iface}_state_t)" = "2" ] || continue
+
+        start_off=$(nvram get wan${iface}_uptime 2>/dev/null | tr -d '[:space:]')
+        case "$start_off" in ''|*[!0-9]*) continue ;; esac
+
+        upsecs=$(( sys_uptime - start_off ))
+        [ "$upsecs" -le 0 ] && continue
+
+        active_if="wan${iface}"
+        break
+    done
+
+    if [ -n "$active_if" ]; then
+        days="$((upsecs/86400))"
+        hours="$((upsecs/3600%24))"
+        minutes="$((upsecs/60%60))"
+        printf "${GRNct}(${active_if}):${CLRct} %s days %s hrs %s mins\n" \
+               "$days" "$hours" "$minutes"
+        return 0
+    fi
+
+    # Triggered only if the NVRAM loop above failed to set $active_if.
+    if [ -z "$active_if" ] && [ -s /tmp/wan_uptime.tmp ]; then
+        read iface wanup_secs </tmp/wan_uptime.tmp
+
+        case "$iface" in
+            0) active_if="wan0" ;;
+            1) active_if="wan1" ;;
+            *) active_if="" ;;           # unknown iface ⇒ ignore file
+        esac
+
+        # Sanity check the parsed seconds #
+        case "$wanup_secs" in ''|*[!0-9]*) active_if="";; esac
+        now_secs=$(date +%s)
+
+        if [ -n "$active_if" ] && [ "$wanup_secs" -lt "$now_secs" ]; then
+            upsecs=$(( now_secs - wanup_secs ))
+        else
+            active_if=""
+        fi
+    fi
+
+    # Print Final Result #
+    if [ -n "$active_if" ]; then
+        days="$((upsecs/86400))"
+        hours="$((upsecs/3600%24))"
+        minutes="$((upsecs/60%60))"
+        printf "${GRNct}(${active_if}):${CLRct} %s days %s hrs %s mins\n" \
+               "$days" "$hours" "$minutes"
+        return 0
+    else
+        printf "${REDct}No WAN events detected${CLRct}\n"
+        return 1
+    fi
+}
+
 ScriptHeader()
 {
 	clear
@@ -1917,6 +2090,7 @@ MainMenu()
 	printf "m.    View RAM/memory usage\n"
 	printf "jn.   View internal storage usage [JFFS & NVRAM]\n"
 	printf "cr.   View cron jobs\n"
+	printf "wu.   View WAN uptime\n"
 	printf "t.    View router temperatures\n"
 	printf "w.    List Addon WebUI tab to page mapping\n"
 	printf "r.    Reboot router\n\n"
@@ -2213,6 +2387,14 @@ MainMenu()
 				PressEnter
 				break
 			;;
+			wu)
+				ScriptHeader
+				printf "${GRNct}WAN Uptime ${CLRct}"
+				Get_WAN_Uptime
+				printf "\n"
+				PressEnter
+				break
+			;;
 			t)
 				ScriptHeader
 				printf "\n${GRNct}${BOLDUNDERLN}Temperatures${CLRct}\n\n"
@@ -2402,9 +2584,9 @@ Check_Requirements()
 	fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Feb-15] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-Jul-22] ##
+##------------------------------------------##
 Menu_Install()
 {
 	ScriptHeader
@@ -2430,6 +2612,7 @@ Menu_Install()
 	Set_Version_Custom_Settings server "$SCRIPT_VERSION"
 	Auto_Startup create 2>/dev/null
 	Auto_ServiceEvent create 2>/dev/null
+	_InstallWanEventHook_ create 2>/dev/null
 
 	Update_File scmerlin_www.asp
 	Update_File sitemap.asp
@@ -2450,9 +2633,9 @@ Menu_Install()
 	MainMenu
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Apr-13] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-Jul-22] ##
+##------------------------------------------##
 Menu_Startup()
 {
 	Create_Dirs
@@ -2469,6 +2652,7 @@ Menu_Startup()
 
 	Shortcut_Script create
 	Auto_ServiceEvent create 2>/dev/null
+	_InstallWanEventHook_ create 2>/dev/null
 
 	"$SCRIPT_DIR/S99tailtop" start >/dev/null 2>&1
 
@@ -2528,14 +2712,15 @@ _FindandRemoveMenuAddOnsSection_()
    return "$retCode"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Mar-01] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-Jul-22] ##
+##------------------------------------------##
 Menu_Uninstall()
 {
 	Print_Output true "Removing $SCRIPT_NAME..." "$PASS"
 	Shortcut_Script delete
 	Auto_Startup delete 2>/dev/null
+	_InstallWanEventHook_ delete 2>/dev/null
 	Auto_ServiceEvent delete 2>/dev/null
 	NTP_BootWatchdog disable
 	NTP_ReadyCheckOption delete
@@ -2768,9 +2953,9 @@ then SCRIPT_VERS_INFO="[$branchx_TAG]"
 else SCRIPT_VERS_INFO="[$version_TAG, $branchx_TAG]"
 fi
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Feb-11] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-Jul-22] ##
+##------------------------------------------##
 if [ $# -eq 0 ] || [ -z "$1" ]
 then
 	isInteractiveMenuMode=true
@@ -2780,6 +2965,7 @@ then
 	NTP_Ready
 	Shortcut_Script create
 	Auto_Startup create 2>/dev/null
+	_InstallWanEventHook_ create 2>/dev/null
 	Auto_ServiceEvent create 2>/dev/null
 	Process_Upgrade
 	_CheckFor_WebGUI_Page_
@@ -2788,9 +2974,9 @@ then
 	exit 0
 fi
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Apr-13] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-Jul-22] ##
+##------------------------------------------##
 case "$1" in
 	install)
 		Check_Lock
@@ -2813,6 +2999,10 @@ case "$1" in
 			settingstate="$(echo "$3" | sed "s/${SCRIPT_NAME_LOWER}_NTPcheck//")";
 			settingstate="$(echo "$settingstate" | tr 'A-Z' 'a-z')"
 			NTP_ReadyCheckOption "$settingstate"
+			exit 0
+		elif [ "$2" = "start" ] && [ "$3" = "${SCRIPT_NAME_LOWER}getwanuptime" ]
+		then
+			Get_WAN_Uptime_JS
 			exit 0
 		elif [ "$2" = "start" ] && echo "$3" | grep -qE "^${SCRIPT_NAME_LOWER}_DNSmasqWatchdog"
 		then
@@ -2902,6 +3092,24 @@ case "$1" in
 		fi
 		exit 0
 	;;
+	wan_event)
+		iface="$2"           # 0 = primary WAN, 1 = secondary
+		if [ "$3" = "connected" ]; then
+			if [ -s /tmp/wan_uptime.tmp ]; then
+				read -r ts </tmp/wan_uptime.tmp
+			else
+				ts=$(date +%s)
+			fi
+			echo "$iface $ts" >/tmp/wan_uptime.tmp       # Persist start-time
+			exit 0
+		elif [ "$2" = "disconnected" ] || [ "$2" = "stopped" ] || \
+			[ "$2" = "disabled" ]; then
+
+			rm -f /tmp/wan_uptime.tmp /tmp/wan_status.tmp   # remove leftovers
+			exit 0
+		fi
+		exit 0
+	;;
 	update)
 		Update_Version
 		exit 0
@@ -2916,6 +3124,7 @@ case "$1" in
 		Shortcut_Script create
 		Auto_Startup create 2>/dev/null
 		Auto_ServiceEvent create 2>/dev/null
+		_InstallWanEventHook_ create 2>/dev/null
 		Process_Upgrade
 		exit 0
 	;;

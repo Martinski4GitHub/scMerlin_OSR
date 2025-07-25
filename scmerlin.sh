@@ -30,7 +30,7 @@ readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
 readonly SCM_VERSION="v2.5.40"
 readonly SCRIPT_VERSION="v2.5.40"
-readonly SCRIPT_VERSTAG="25072421"
+readonly SCRIPT_VERSTAG="25072423"
 SCRIPT_BRANCH="develop"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -2012,7 +2012,7 @@ Get_WAN_Uptime()
         minutes="$((upsecs/60%60))"
 
         # If we seeded at boot, make that clear in the output #
-        [ "$approx_flag" = "SEED" ] && approx_flag=" (firstrun-seed)" || approx_flag=""
+        [ "$approx_flag" = "SEED" ] && approx_flag=" (initial-seed)" || approx_flag=""
 
         printf "${GRNct}(${active_if}):${CLRct} %s days %s hrs %s mins%s\n" \
                "$days" "$hours" "$minutes" "$approx_flag"

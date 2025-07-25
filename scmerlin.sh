@@ -30,7 +30,7 @@ readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
 readonly SCM_VERSION="v2.5.40"
 readonly SCRIPT_VERSION="v2.5.40"
-readonly SCRIPT_VERSTAG="25072420"
+readonly SCRIPT_VERSTAG="25072421"
 SCRIPT_BRANCH="develop"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -3127,7 +3127,7 @@ case "$1" in
 
 			if [ ! -s /tmp/wan_uptime.tmp ]
 			then timeSecs="$(date +%s)"
-			else read ifaceNum timeSecs < /tmp/wan_uptime.tmp
+			else read ifaceNum timeSecs seedTag < /tmp/wan_uptime.tmp
 			fi
 			# Persist start-time #
 			echo "$ifaceNumWAN $timeSecs" > /tmp/wan_uptime.tmp

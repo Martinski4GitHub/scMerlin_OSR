@@ -12,7 +12,7 @@
 ## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2025-Jul-23
+# Last Modified: 2025-Jul-24
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -30,7 +30,7 @@ readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
 readonly SCM_VERSION="v2.5.40"
 readonly SCRIPT_VERSION="v2.5.40"
-readonly SCRIPT_VERSTAG="25072312"
+readonly SCRIPT_VERSTAG="25072420"
 SCRIPT_BRANCH="develop"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -1917,19 +1917,19 @@ _Init_WAN_Uptime_File_()
         fi
     done
 
-    return 1  # no usable WAN found
+    return 1  # no usable WAN found #
 }
 
-##-------------------------------------------##
+##------------------------------------------##
 ## Modified by ExtremeFiretop [2025-Jul-23] ##
-##-----------------------------------------##
+##------------------------------------------##
 Get_WAN_Uptime()
 {
     _Init_WAN_Uptime_File_
 
     local ifaceNum  upsecs  uptime  days  hours  minutes
-    local wanup_secs  now_secs  tag approx_flag
-    local active_if=""  ts_file
+    local wanup_secs  now_secs  seedTag  approx_flag
+    local active_if=""
 
     # Abort if both WANs are down #
     if [ "$(nvram get wan0_state_t)" != "2" ] && [ "$(nvram get wan1_state_t)" != "2" ]
@@ -1983,7 +1983,7 @@ Get_WAN_Uptime()
     # Triggered only if the NVRAM loop above failed to set $active_if #
     if [ -z "$active_if" ] && [ -s /tmp/wan_uptime.tmp ]
     then
-        read ifaceNum wanup_secs tag < /tmp/wan_uptime.tmp
+        read ifaceNum wanup_secs seedTag < /tmp/wan_uptime.tmp
 
         case "$ifaceNum" in
             0) active_if="wan0" ;;
@@ -1998,7 +1998,7 @@ Get_WAN_Uptime()
         if [ -n "$active_if" ] && [ "$wanup_secs" -lt "$now_secs" ]
         then
             upsecs="$(( now_secs - wanup_secs ))"
-            approx_flag="$tag"   # will be "SEED"
+            approx_flag="$seedTag"   # will be "SEED" #
         else
             active_if=""
         fi
@@ -2011,7 +2011,7 @@ Get_WAN_Uptime()
         hours="$((upsecs/3600%24))"
         minutes="$((upsecs/60%60))"
 
-        # If we seeded at boot, make that clear in the output
+        # If we seeded at boot, make that clear in the output #
         [ "$approx_flag" = "SEED" ] && approx_flag=" (firstrun-seed)" || approx_flag=""
 
         printf "${GRNct}(${active_if}):${CLRct} %s days %s hrs %s mins%s\n" \
@@ -2834,14 +2834,16 @@ WAN_IsConnected()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Apr-13] ##
+## Modified by Martinski W. [2025-Jul-24] ##
 ##----------------------------------------##
 NTP_Ready()
 {
 	local theSleepDelay=15  ntpMaxWaitSecs=600  ntpWaitSecs
-	local NTP_READY_CHECK_STATUS
+	local NTP_READY_CHECK_STATUS  doLockCheck=true
 
-	NTP_READY_CHECK_STATUS="$(NTP_ReadyCheckOption status)"
+	if [ $# -gt 0 ] && [ "$1" = "noLockCheck" ]
+	then sleep 3 ; doLockCheck=false
+	fi
 
 	if [ "$(nvram get ntp_ready)" -eq 1 ]
 	then
@@ -2856,6 +2858,7 @@ NTP_Ready()
 	## if WAN is *not* in the "connected" state. This is done
 	## to avoid any problems related not having NTP synchronized.
 	##--------------------------------------------------------------
+	NTP_READY_CHECK_STATUS="$(NTP_ReadyCheckOption status)"
 	if [ "$NTP_READY_CHECK_STATUS" = "DISABLED" ] && ! WAN_IsConnected
 	then
 		[ "$isInteractiveMenuMode" = "false" ] && \
@@ -2865,7 +2868,10 @@ NTP_Ready()
 
 	if [ "$(nvram get ntp_ready)" -eq 0 ]
 	then
-		Check_Lock
+		if "$doLockCheck"
+		then Check_Lock
+		else theSleepDelay=5
+		fi
 		Print_Output true "Waiting for NTP to sync..." "$WARN"
 
 		ntpWaitSecs=0
@@ -2882,11 +2888,11 @@ NTP_Ready()
 		if [ "$ntpWaitSecs" -ge "$ntpMaxWaitSecs" ]
 		then
 			Print_Output true "NTP failed to sync after 10 minutes. Please resolve!" "$CRIT"
-			Clear_Lock
+			"$doLockCheck" && Clear_Lock
 			exit 1
 		else
 			Print_Output true "NTP has synced [$ntpWaitSecs secs], $SCRIPT_NAME will now continue." "$PASS"
-			Clear_Lock
+			"$doLockCheck" && Clear_Lock
 		fi
 	fi
 }
@@ -3001,7 +3007,7 @@ then
 fi
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jul-23] ##
+## Modified by Martinski W. [2025-Jul-24] ##
 ##----------------------------------------##
 case "$1" in
 	install)
@@ -3117,18 +3123,15 @@ case "$1" in
 		ifaceNumWAN="$2"   # 0 = primary WAN, 1 = secondary WAN #
 		if [ "$3" = "connected" ]
 		then
+			NTP_Ready noLockCheck   # Make sure clock is synced #
+
 			if [ ! -s /tmp/wan_uptime.tmp ]
 			then timeSecs="$(date +%s)"
 			else read ifaceNum timeSecs < /tmp/wan_uptime.tmp
 			fi
 			# Persist start-time #
 			echo "$ifaceNumWAN $timeSecs" > /tmp/wan_uptime.tmp
-		##
-		elif [ "$3" = "init" ]   || \
-		     [ "$3" = "stopped" ] || \
-		     [ "$3" = "disabled" ] || \
-		     [ "$3" = "disconnected" ]
-		then
+		else
 			rm -f /tmp/wan_uptime.tmp /tmp/wan_status.tmp
 		fi
 		exit 0

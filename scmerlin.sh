@@ -12,7 +12,7 @@
 ## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2025-Jul-24
+# Last Modified: 2025-Jul-25
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -30,7 +30,7 @@ readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
 readonly SCM_VERSION="v2.5.40"
 readonly SCRIPT_VERSION="v2.5.40"
-readonly SCRIPT_VERSTAG="25072423"
+readonly SCRIPT_VERSTAG="25072520"
 SCRIPT_BRANCH="develop"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -1897,20 +1897,26 @@ _InstallWanEventHook_()
     esac
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Jul-23] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Jul-25] ##
+##----------------------------------------##
 _Init_WAN_Uptime_File_()
 {
-    # Already seeded? Nothing to do #
-    [ -s /tmp/wan_uptime.tmp ] && return 0
+    local ifaceNumWAN=""  ifaceNum  timeSecs  seedTag
 
-    local ifaceNum
+    if [ -s /tmp/wan_uptime.tmp ]
+    then
+        read ifaceNumWAN timeSecs seedTag < /tmp/wan_uptime.tmp
+    fi
+
     for ifaceNum in 0 1
     do
         if [ "$(nvram get "wan${ifaceNum}_primary")" = "1" ] && \
            [ "$(nvram get "wan${ifaceNum}_state_t")" = "2" ]
         then
+            if [ -n "$ifaceNumWAN" ] && [ "$ifaceNum" = "$ifaceNumWAN" ]
+            then return 0   # Already seeded #
+            fi
             echo "${ifaceNum} $(date +%s) SEED" > /tmp/wan_uptime.tmp
             sleep 1
             return 0
@@ -1920,9 +1926,9 @@ _Init_WAN_Uptime_File_()
     return 1  # no usable WAN found #
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Jul-23] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Jul-25] ##
+##----------------------------------------##
 Get_WAN_Uptime()
 {
     _Init_WAN_Uptime_File_
@@ -1957,7 +1963,10 @@ Get_WAN_Uptime()
 
     for ifaceNum in 0 1
     do
-        [ "$(nvram get "wan${ifaceNum}_state_t")" = "2" ] || continue
+        if [ "$(nvram get "wan${ifaceNum}_primary")" != "1" ] || \
+           [ "$(nvram get "wan${ifaceNum}_state_t")" != "2" ]
+        then continue
+        fi
 
         start_off="$(nvram get "wan${ifaceNum}_uptime" 2>/dev/null | tr -d '[:space:]')"
         case "$start_off" in ''|*[!0-9]*) continue ;; esac
@@ -2891,7 +2900,7 @@ NTP_Ready()
 			"$doLockCheck" && Clear_Lock
 			exit 1
 		else
-			Print_Output true "NTP has synced [$ntpWaitSecs secs], $SCRIPT_NAME will now continue." "$PASS"
+			Print_Output true "NTP has synced [$ntpWaitSecs secs]. $SCRIPT_NAME will now continue." "$PASS"
 			"$doLockCheck" && Clear_Lock
 		fi
 	fi
@@ -2914,18 +2923,19 @@ Entware_Ready()
 		do
 			if [ "$((sleepTimerSecs % 10))" -eq 0 ]
 			then
-			    Print_Output true "Entware NOT found, sleeping for $theSleepDelay secs [$sleepTimerSecs secs]..." "$WARN"
+			    Print_Output true "Entware NOT found. Wait for Entware to be ready [$sleepTimerSecs secs]..." "$WARN"
 			fi
 			sleep "$theSleepDelay"
 			sleepTimerSecs="$((sleepTimerSecs + theSleepDelay))"
 		done
+
 		if [ ! -f /opt/bin/opkg ]
 		then
 			Print_Output true "Entware NOT found and is required for $SCRIPT_NAME to run, please resolve!" "$CRIT"
 			Clear_Lock
 			exit 1
 		else
-			Print_Output true "Entware found, $SCRIPT_NAME will now continue" "$PASS"
+			Print_Output true "Entware found [$sleepTimerSecs secs]. $SCRIPT_NAME will now continue." "$PASS"
 			Clear_Lock
 		fi
 	fi

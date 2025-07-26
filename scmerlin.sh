@@ -12,7 +12,7 @@
 ## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2025-Jul-25
+# Last Modified: 2025-Jul-26
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -30,7 +30,7 @@ readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
 readonly SCM_VERSION="v2.5.40"
 readonly SCRIPT_VERSION="v2.5.40"
-readonly SCRIPT_VERSTAG="25072520"
+readonly SCRIPT_VERSTAG="25072600"
 SCRIPT_BRANCH="develop"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -1902,22 +1902,24 @@ _InstallWanEventHook_()
 ##----------------------------------------##
 _Init_WAN_Uptime_File_()
 {
-    local ifaceNumWAN=""  ifaceNum  timeSecs  seedTag
-
-    if [ -s /tmp/wan_uptime.tmp ]
-    then
-        read ifaceNumWAN timeSecs seedTag < /tmp/wan_uptime.tmp
-    fi
+    local ifaceNum  timeSecs  seedTag  wanIFaceNum  wanIFaceFile
 
     for ifaceNum in 0 1
     do
         if [ "$(nvram get "wan${ifaceNum}_primary")" = "1" ] && \
            [ "$(nvram get "wan${ifaceNum}_state_t")" = "2" ]
         then
-            if [ -n "$ifaceNumWAN" ] && [ "$ifaceNum" = "$ifaceNumWAN" ]
+            wanIFaceNum=""
+            wanIFaceFile="/tmp/wan${ifaceNum}_uptime.tmp"
+            if [ -s "$wanIFaceFile" ]
+            then
+                read wanIFaceNum timeSecs seedTag < "$wanIFaceFile"
+            fi
+
+            if [ -n "$wanIFaceNum" ] && [ "$ifaceNum" = "$wanIFaceNum" ]
             then return 0   # Already seeded #
             fi
-            echo "${ifaceNum} $(date +%s) SEED" > /tmp/wan_uptime.tmp
+            echo "$ifaceNum $(date +%s) SEED" > "$wanIFaceFile"
             sleep 1
             return 0
         fi
@@ -1935,7 +1937,7 @@ Get_WAN_Uptime()
 
     local ifaceNum  upsecs  uptime  days  hours  minutes
     local wanup_secs  now_secs  seedTag  approx_flag
-    local active_if=""
+    local active_IFaceWAN=""  wanIFaceNum  wanIFaceFile
 
     # Abort if both WANs are down #
     if [ "$(nvram get wan0_state_t)" != "2" ] && [ "$(nvram get wan1_state_t)" != "2" ]
@@ -1974,47 +1976,57 @@ Get_WAN_Uptime()
         upsecs="$(( sys_uptime - start_off ))"
         [ "$upsecs" -le 0 ] && continue
 
-        active_if="wan${ifaceNum}"
+        active_IFaceWAN="wan${ifaceNum}"
         approx_flag=""
         break
     done
 
-    if [ -n "$active_if" ]
+    if [ -n "$active_IFaceWAN" ]
     then
         days="$((upsecs/86400))"
         hours="$((upsecs/3600%24))"
         minutes="$((upsecs/60%60))"
-        printf "${GRNct}(${active_if}):${CLRct} %s days %s hrs %s mins\n" \
+        printf "${GRNct}(${active_IFaceWAN}):${CLRct} %s days %s hrs %s mins\n" \
                "$days" "$hours" "$minutes"
         return 0
     fi
 
-    # Triggered only if the NVRAM loop above failed to set $active_if #
-    if [ -z "$active_if" ] && [ -s /tmp/wan_uptime.tmp ]
-    then
-        read ifaceNum wanup_secs seedTag < /tmp/wan_uptime.tmp
+    # Triggered only if the NVRAM loop above failed to set $active_IFaceWAN #
+    for ifaceNum in 0 1
+    do
+        if [ "$(nvram get "wan${ifaceNum}_primary")" != "1" ] || \
+           [ "$(nvram get "wan${ifaceNum}_state_t")" != "2" ]
+        then continue
+        fi
 
-        case "$ifaceNum" in
-            0) active_if="wan0" ;;
-            1) active_if="wan1" ;;
-            *) active_if="" ;;  # unknown ifaceNum = ignore file #
+        wanIFaceNum=""
+        wanIFaceFile="/tmp/wan${ifaceNum}_uptime.tmp"
+        if [ -s "$wanIFaceFile" ]
+        then
+            read wanIFaceNum wanup_secs seedTag < "$wanIFaceFile"
+        fi
+
+        case "$wanIFaceNum" in
+            0) active_IFaceWAN="wan0" ;;
+            1) active_IFaceWAN="wan1" ;;
+            *) active_IFaceWAN="" ;;  # unknown ifaceNum = ignore file #
         esac
 
         # Sanity check the parsed seconds #
-        case "$wanup_secs" in ''|*[!0-9]*) active_if="" ;; esac
+        case "$wanup_secs" in ''|*[!0-9]*) active_IFaceWAN="" ;; esac
         now_secs="$(date +%s)"
 
-        if [ -n "$active_if" ] && [ "$wanup_secs" -lt "$now_secs" ]
+        if [ -n "$active_IFaceWAN" ] && [ "$wanup_secs" -lt "$now_secs" ]
         then
             upsecs="$(( now_secs - wanup_secs ))"
             approx_flag="$seedTag"   # will be "SEED" #
         else
-            active_if=""
+            active_IFaceWAN=""
         fi
-    fi
+    done
 
     # Print Final Result #
-    if [ -n "$active_if" ]
+    if [ -n "$active_IFaceWAN" ]
     then
         days="$((upsecs/86400))"
         hours="$((upsecs/3600%24))"
@@ -2023,7 +2035,7 @@ Get_WAN_Uptime()
         # If we seeded at boot, make that clear in the output #
         [ "$approx_flag" = "SEED" ] && approx_flag=" (initial-seed)" || approx_flag=""
 
-        printf "${GRNct}(${active_if}):${CLRct} %s days %s hrs %s mins%s\n" \
+        printf "${GRNct}(${active_IFaceWAN}):${CLRct} %s days %s hrs %s mins%s\n" \
                "$days" "$hours" "$minutes" "$approx_flag"
         return 0
     else
@@ -2851,7 +2863,7 @@ NTP_Ready()
 	local NTP_READY_CHECK_STATUS  doLockCheck=true
 
 	if [ $# -gt 0 ] && [ "$1" = "noLockCheck" ]
-	then sleep 3 ; doLockCheck=false
+	then sleep 5 ; doLockCheck=false
 	fi
 
 	if [ "$(nvram get ntp_ready)" -eq 1 ]
@@ -3017,7 +3029,7 @@ then
 fi
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jul-24] ##
+## Modified by Martinski W. [2025-Jul-25] ##
 ##----------------------------------------##
 case "$1" in
 	install)
@@ -3130,19 +3142,26 @@ case "$1" in
 		exit 0
 	;;
 	wan_event)
-		ifaceNumWAN="$2"   # 0 = primary WAN, 1 = secondary WAN #
+		wanIFaceNum="$2"   # 0 = primary WAN, 1 = secondary WAN #
+		wanIFaceFile="/tmp/wan${wanIFaceNum}_uptime.tmp"
+
 		if [ "$3" = "connected" ]
 		then
 			NTP_Ready noLockCheck   # Make sure clock is synced #
 
-			if [ ! -s /tmp/wan_uptime.tmp ]
+			if [ ! -s "$wanIFaceFile" ]
 			then timeSecs="$(date +%s)"
-			else read ifaceNum timeSecs seedTag < /tmp/wan_uptime.tmp
+			else read ifaceNum timeSecs seedTag < "$wanIFaceFile"
 			fi
-			# Persist start-time #
-			echo "$ifaceNumWAN $timeSecs" > /tmp/wan_uptime.tmp
+
+			if [ "$(nvram get "wan${wanIFaceNum}_state_t")" = "2" ]
+			then
+			    echo "$wanIFaceNum $timeSecs" > "$wanIFaceFile"
+			else
+			    rm -f "$wanIFaceFile"
+			fi
 		else
-			rm -f /tmp/wan_uptime.tmp /tmp/wan_status.tmp
+			rm -f "$wanIFaceFile" /tmp/wan_uptime.tmp
 		fi
 		exit 0
 	;;

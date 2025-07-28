@@ -60,7 +60,7 @@ function initial()
 	}
 	$('#table_config').after(servicectablehtml);
 	
-	document.formScriptActions.action_script.value='start_scmerlingetaddonpages;start_scmerlingetcronjobs';
+	document.formScriptActions.action_script.value='start_scmerlingetaddonpages;start_scmerlingetcronjobs;start_scmerlingetwanuptime';
 	document.formScriptActions.submit();
 	setTimeout(load_addonpages,5000);
 	setTimeout(get_cronlist_file,5000);
@@ -69,6 +69,7 @@ function initial()
 	Get_NTPReadyCheck_Option();
 	Get_DNSmasqWatchdogEnabled_File();
 	update_temperatures();
+	update_wanuptime();
 	update_sysinfo();
 	ScriptUpdateLayout();
 	AddEventHandlers();

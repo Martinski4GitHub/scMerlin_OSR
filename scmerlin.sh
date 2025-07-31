@@ -12,7 +12,7 @@
 ## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2025-Jul-26
+# Last Modified: 2025-Jul-31
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -28,9 +28,9 @@
 ### Start of script variables ###
 readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
-readonly SCM_VERSION="v2.5.40"
-readonly SCRIPT_VERSION="v2.5.40"
-readonly SCRIPT_VERSTAG="25072600"
+readonly SCM_VERSION="v2.5.41"
+readonly SCRIPT_VERSION="v2.5.41"
+readonly SCRIPT_VERSTAG="25073100"
 SCRIPT_BRANCH="develop"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -2065,8 +2065,50 @@ ScriptHeader()
 	printf "\n"
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2024-Jul-30] ##
+##-------------------------------------##
+_NTPMerlin_GetTimeServerIDfromConfig_()
+{
+    timeServerID=""
+    local initTimeServerPath  ntpxTimeServerPath
+
+    if [ ! -s /jffs/scripts/ntpmerlin ] || \
+       [ ! -d /jffs/addons/ntpmerlin.d ]
+    then return 1
+    fi
+    local ntpConfigFile=""
+
+    if [ -s /opt/share/ntpmerlin.d/config ]
+    then ntpConfigFile="/opt/share/ntpmerlin.d/config"
+    elif [ -s /jffs/addons/ntpmerlin.d/config ]
+    then ntpConfigFile="/jffs/addons/ntpmerlin.d/config"
+    fi
+    if [ -z "$ntpConfigFile" ]
+    then return 1
+    fi
+
+    timeServerID="$(grep "^TIMESERVER=.*" "$ntpConfigFile" | awk -F '=' '{print $2}')"
+    if [ -z "$timeServerID" ]
+    then return 1
+    fi
+    initTimeServerPath="/opt/etc/init.d/S77$timeServerID"
+    ntpxTimeServerPath="/jffs/addons/ntpmerlin.d/S77$timeServerID"
+
+    # Make sure we have the ntpMerlin version #
+    if [ -s "$ntpxTimeServerPath" ] && [ -s "$initTimeServerPath" ] && \
+       ! diff -q "$initTimeServerPath" "$ntpxTimeServerPath" >/dev/null 2>&1 
+    then
+        "$initTimeServerPath" stop >/dev/null 2>&1
+        sleep 2
+        cp -fp "$ntpxTimeServerPath" "$initTimeServerPath"
+        chmod a+x "$initTimeServerPath"
+    fi
+    return 0
+}
+
 ##----------------------------------------##
-## Modified by Martinski W. [2024-May-15] ##
+## Modified by Martinski W. [2024-Jul-30] ##
 ##----------------------------------------##
 MainMenu()
 {
@@ -2090,18 +2132,21 @@ MainMenu()
 	##---------- VPN CLIENTS ----------##
 	vpnclients="$(nvram show 2> /dev/null | grep "^vpn_client._addr")"
 	vpnclientenabled="false"
-	for vpnclient in $vpnclients; do
+	for vpnclient in $vpnclients
+	do
 		if [ -n "$(nvram get "$(echo "$vpnclient" | cut -f1 -d'=')")" ]; then
 			vpnclientenabled="true"
 		fi
 	done
-	if [ "$vpnclientenabled" = "true" ]; then
+	if [ "$vpnclientenabled" = "true" ]
+	then
 		printf "\\n${BOLDUNDERLN}VPN Clients${CLEARFORMAT}"
 		printf "${BOLD}${WARN} (selecting an option will restart the VPN Client)${CLEARFORMAT}\\n"
 		vpnclientnum=1
-		while [ "$vpnclientnum" -lt 6 ]; do
+		while [ "$vpnclientnum" -lt 6 ]
+		do
 			printf "vc%s.  VPN Client %s (%s)\\n" "$vpnclientnum" "$vpnclientnum" "$(nvram get vpn_client"$vpnclientnum"_desc)"
-			vpnclientnum=$((vpnclientnum + 1))
+			vpnclientnum="$((vpnclientnum + 1))"
 		done
 	fi
 
@@ -2111,22 +2156,25 @@ MainMenu()
 	if [ "$vpnservercount" -gt 0 ]; then
 		vpnserverenabled="true"
 	fi
-	if [ "$vpnserverenabled" = "true" ]; then
+	if [ "$vpnserverenabled" = "true" ]
+	then
 		printf "\\n${BOLDUNDERLN}VPN Servers${CLEARFORMAT}"
 		printf "${BOLD}${WARN} (selecting an option will restart the VPN Server)${CLEARFORMAT}\\n"
 		vpnservernum=1
-		while [ "$vpnservernum" -lt 3 ]; do
+		while [ "$vpnservernum" -lt 3 ]
+		do
 			vpnsdesc=""
 			if ! nvram get vpn_serverx_start | grep -q "$vpnservernum"; then
 				vpnsdesc="(Not configured)"
 			fi
 			printf "vs%s.  VPN Server %s %s\\n" "$vpnservernum" "$vpnservernum" "$vpnsdesc"
-			vpnservernum=$((vpnservernum + 1))
+			vpnservernum="$((vpnservernum + 1))"
 		done
 	fi
 
 	##---------- ENTWARE ----------##
-	if [ -f /opt/bin/opkg ]; then
+	if [ -f /opt/bin/opkg ]
+	then
 		printf "\\n${BOLDUNDERLN}Entware${CLEARFORMAT}\\n"
 		printf "et.   Restart all Entware applications\\n"
 	fi
@@ -2178,7 +2226,8 @@ MainMenu()
 	printf "\\n"
 	printf "${BOLD}######################################################${CLEARFORMAT}\\n"
 	printf "\\n"
-	while true; do
+	while true
+	do
 		printf "Choose an option:  "
 		read -r menu
 		case "$menu" in
@@ -2190,7 +2239,8 @@ MainMenu()
 			;;
 			2)
 				printf "\\n"
-				while true; do
+				while true
+				do
 					printf "\\n${BOLD}Internet connection will take 30s-60s to reconnect. Continue? (y/n)${CLEARFORMAT}  "
 					read -r confirm
 					case "$confirm" in
@@ -2221,7 +2271,8 @@ MainMenu()
 			5)
 				ENABLED_FTP="$(nvram get enable_ftp)"
 				if ! Validate_Number "$ENABLED_FTP"; then ENABLED_FTP=0; fi
-				if [ "$ENABLED_FTP" -eq 1 ]; then
+				if [ "$ENABLED_FTP" -eq 1 ]
+				then
 					printf "\\n"
 					service restart_ftpd >/dev/null 2>&1
 				else
@@ -2233,7 +2284,8 @@ MainMenu()
 			6)
 				ENABLED_SAMBA="$(nvram get enable_samba)"
 				if ! Validate_Number "$ENABLED_SAMBA"; then ENABLED_SAMBA=0; fi
-				if [ "$ENABLED_SAMBA" -eq 1 ]; then
+				if [ "$ENABLED_SAMBA" -eq 1 ]
+				then
 					printf "\\n"
 					service restart_samba >/dev/null 2>&1
 				else
@@ -2245,7 +2297,8 @@ MainMenu()
 			7)
 				ENABLED_DDNS="$(nvram get ddns_enable_x)"
 				if ! Validate_Number "$ENABLED_DDNS"; then ENABLED_DDNS=0; fi
-				if [ "$ENABLED_DDNS" -eq 1 ]; then
+				if [ "$ENABLED_DDNS" -eq 1 ]
+				then
 					printf "\\n"
 					service restart_ddns >/dev/null 2>&1
 				else
@@ -2255,28 +2308,36 @@ MainMenu()
 				break
 			;;
 			8)
+				timeServerID=""
 				ENABLED_NTPD="$(nvram get ntpd_enable)"
-				if ! Validate_Number "$ENABLED_NTPD"; then ENABLED_NTPD=0; fi
+				if ! Validate_Number "$ENABLED_NTPD"
+				then ENABLED_NTPD=0 ; fi
 				if [ "$ENABLED_NTPD" -eq 1 ]
 				then
 					printf "\nRestarting router local NTP time server...\n"
 					service restart_time >/dev/null 2>&1
-				elif [ -f /opt/etc/init.d/S77ntpd ]
+				elif _NTPMerlin_GetTimeServerIDfromConfig_ && \
+                     [ -s "/opt/etc/init.d/S77$timeServerID" ]
 				then
-					printf "\nRestarting Entware ntpd time server...\n"
+                    printf "\nRestarting ntpMerlin '$timeServerID' time server...\n"
+					"/opt/etc/init.d/S77$timeServerID" restart
+				elif [ -s /opt/etc/init.d/S77ntpd ]
+				then
+					printf "\nRestarting Entware 'ntpd' time server...\n"
 					/opt/etc/init.d/S77ntpd restart
-				elif [ -f /opt/etc/init.d/S77chronyd ]
+				elif [ -s /opt/etc/init.d/S77chronyd ]
 				then
-					printf "\nRestarting Entware chronyd time server...\n"
+					printf "\nRestarting Entware 'chronyd' time server...\n"
 					/opt/etc/init.d/S77chronyd restart
 				else
-					printf "\n${BOLD}${ERR}Invalid selection (NTP server NOT enabled/installed)${CLEARFORMAT}\n\n"
+					printf "\n${BOLD}${ERR}Invalid selection (NTP server NOT enabled/installed)${CLEARFORMAT}\n"
 				fi
-				PressEnter
+				echo ; PressEnter
 				break
 			;;
 			vc1)
-				if [ -n "$(nvram get vpn_client1_addr)" ]; then
+				if [ -n "$(nvram get vpn_client1_addr)" ]
+				then
 					printf "\\n"
 					service restart_vpnclient1 >/dev/null 2>&1
 				else
@@ -2286,7 +2347,8 @@ MainMenu()
 				break
 			;;
 			vc2)
-				if [ -n "$(nvram get vpn_client2_addr)" ]; then
+				if [ -n "$(nvram get vpn_client2_addr)" ]
+				then
 					printf "\\n"
 					service restart_vpnclient2 >/dev/null 2>&1
 				else
@@ -2296,7 +2358,8 @@ MainMenu()
 				break
 			;;
 			vc3)
-				if [ -n "$(nvram get vpn_client3_addr)" ]; then
+				if [ -n "$(nvram get vpn_client3_addr)" ]
+				then
 					printf "\\n"
 					service restart_vpnclient3 >/dev/null 2>&1
 				else
@@ -2306,7 +2369,8 @@ MainMenu()
 				break
 			;;
 			vc4)
-				if [ -n "$(nvram get vpn_client4_addr)" ]; then
+				if [ -n "$(nvram get vpn_client4_addr)" ]
+				then
 					printf "\\n"
 					service restart_vpnclient4 >/dev/null 2>&1
 				else
@@ -2316,7 +2380,8 @@ MainMenu()
 				break
 			;;
 			vc5)
-				if [ -n "$(nvram get vpn_client5_addr)" ]; then
+				if [ -n "$(nvram get vpn_client5_addr)" ]
+				then
 					printf "\\n"
 					service restart_vpnclient5 >/dev/null 2>&1
 				else
@@ -2326,7 +2391,8 @@ MainMenu()
 				break
 			;;
 			vs1)
-				if nvram get vpn_serverx_start | grep -q 1; then
+				if nvram get vpn_serverx_start | grep -q '1'
+				then
 					printf "\\n"
 					service restart_vpnserver1 >/dev/null 2>&1
 				else
@@ -2336,7 +2402,8 @@ MainMenu()
 				break
 			;;
 			vs2)
-				if nvram get vpn_serverx_start | grep -q 2; then
+				if nvram get vpn_serverx_start | grep -q '2'
+				then
 					printf "\\n"
 					service restart_vpnserver2 >/dev/null 2>&1
 				else
@@ -3029,7 +3096,7 @@ then
 fi
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jul-25] ##
+## Modified by Martinski W. [2025-Jul-30] ##
 ##----------------------------------------##
 case "$1" in
 	install)
@@ -3066,7 +3133,8 @@ case "$1" in
 			echo 'var servicestatus = "InProgress";' > "$SCRIPT_WEB_DIR/detect_service.js"
 			srvname="$(echo "$3" | sed "s/${SCRIPT_NAME_LOWER}servicerestart//")";
 
-			if [ "$srvname" = "vsftpd" ]; then
+			if [ "$srvname" = "vsftpd" ]
+			then
 				ENABLED_FTP="$(nvram get enable_ftp)"
 				if ! Validate_Number "$ENABLED_FTP"; then ENABLED_FTP=0; fi
 				if [ "$ENABLED_FTP" -eq 1 ]; then
@@ -3075,7 +3143,8 @@ case "$1" in
 				else
 					echo 'var servicestatus = "Invalid";' > "$SCRIPT_WEB_DIR/detect_service.js"
 				fi
-			elif [ "$srvname" = "samba" ]; then
+			elif [ "$srvname" = "samba" ]
+			then
 				ENABLED_SAMBA="$(nvram get enable_samba)"
 				if ! Validate_Number "$ENABLED_SAMBA"; then ENABLED_SAMBA=0; fi
 				if [ "$ENABLED_SAMBA" -eq 1 ]; then
@@ -3084,38 +3153,54 @@ case "$1" in
 				else
 					echo 'var servicestatus = "Invalid";' > "$SCRIPT_WEB_DIR/detect_service.js"
 				fi
-			elif [ "$srvname" = "ntpdchronyd" ]; then
+			elif [ "$srvname" = "ntpdchronyd" ]
+			then
+				timeServerID=""
 				ENABLED_NTPD="$(nvram get ntpd_enable)"
-				if ! Validate_Number "$ENABLED_NTPD"; then ENABLED_NTPD=0; fi
-				if [ "$ENABLED_NTPD" -eq 1 ]; then
+				if ! Validate_Number "$ENABLED_NTPD"
+				then ENABLED_NTPD=0 ; fi
+				if [ "$ENABLED_NTPD" -eq 1 ]
+				then
 					service restart_time >/dev/null 2>&1
 					echo 'var servicestatus = "Done";' > "$SCRIPT_WEB_DIR/detect_service.js"
-				elif [ -f /opt/etc/init.d/S77ntpd ]; then
+				elif _NTPMerlin_GetTimeServerIDfromConfig_ && \
+                     [ -s "/opt/etc/init.d/S77$timeServerID" ]
+				then
+					"/opt/etc/init.d/S77$timeServerID" restart
+					echo 'var servicestatus = "Done";' > "$SCRIPT_WEB_DIR/detect_service.js"
+				elif [ -s /opt/etc/init.d/S77ntpd ]
+				then
 					/opt/etc/init.d/S77ntpd restart
 					echo 'var servicestatus = "Done";' > "$SCRIPT_WEB_DIR/detect_service.js"
-				elif [ -f /opt/etc/init.d/S77chronyd ]; then
+				elif [ -s /opt/etc/init.d/S77chronyd ]
+				then
 					/opt/etc/init.d/S77chronyd restart
 					echo 'var servicestatus = "Done";' > "$SCRIPT_WEB_DIR/detect_service.js"
 				else
 					echo 'var servicestatus = "Invalid";' > "$SCRIPT_WEB_DIR/detect_service.js"
 				fi
-			elif echo "$srvname" | grep -q "vpnclient"; then
+			elif echo "$srvname" | grep -q "vpnclient"
+			then
 				vpnno="$(echo "$srvname" | sed "s/vpnclient//")";
-				if [ -n "$(nvram get "vpn_client${vpnno}_addr")" ]; then
+				if [ -n "$(nvram get "vpn_client${vpnno}_addr")" ]
+				then
 					service restart_"$srvname" >/dev/null 2>&1
 					echo 'var servicestatus = "Done";' > "$SCRIPT_WEB_DIR/detect_service.js"
 				else
 					echo 'var servicestatus = "Invalid";' > "$SCRIPT_WEB_DIR/detect_service.js"
 				fi
-			elif echo "$srvname" | grep -q "vpnserver"; then
+			elif echo "$srvname" | grep -q "vpnserver"
+			then
 				vpnno="$(echo "$srvname" | sed "s/vpnserver//")";
-				if nvram get vpn_serverx_start | grep -q "$vpnno"; then
+				if nvram get vpn_serverx_start | grep -q "$vpnno"
+				then
 					service restart_"$srvname" >/dev/null 2>&1
 					echo 'var servicestatus = "Done";' > "$SCRIPT_WEB_DIR/detect_service.js"
 				else
 					echo 'var servicestatus = "Invalid";' > "$SCRIPT_WEB_DIR/detect_service.js"
 				fi
-			elif [ "$srvname" = "entware" ]; then
+			elif [ "$srvname" = "entware" ]
+			then
 				/opt/etc/init.d/rc.unslung restart
 				echo 'var servicestatus = "Done";' > "$SCRIPT_WEB_DIR/detect_service.js"
 			else

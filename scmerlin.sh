@@ -30,7 +30,7 @@ readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
 readonly SCM_VERSION="v2.5.41"
 readonly SCRIPT_VERSION="v2.5.41"
-readonly SCRIPT_VERSTAG="25073100"
+readonly SCRIPT_VERSTAG="25073122"
 SCRIPT_BRANCH="develop"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -423,7 +423,7 @@ Update_Check()
 	doupdate="false"
 	localver="$(grep "SCRIPT_VERSION=" "/jffs/scripts/$SCRIPT_NAME_LOWER" | grep -m1 -oE "$scriptVersRegExp")"
 	curl -fsL --retry 4 --retry-delay 5 "$SCRIPT_REPO/$SCRIPT_NAME_LOWER.sh" | grep -qF "jackyaz" || \
-    { Print_Output true "404 error detected - stopping update" "$ERR"; return 1; }
+	{ Print_Output true "404 error detected - stopping update" "$ERR"; return 1; }
 	serverver="$(curl -fsL --retry 4 --retry-delay 5 "$SCRIPT_REPO/$SCRIPT_NAME_LOWER.sh" | grep "SCRIPT_VERSION=" | grep -m1 -oE "$scriptVersRegExp")"
 	if [ "$localver" != "$serverver" ]
 	then
@@ -808,7 +808,7 @@ Upgrade_StateJS()
         mount -o bind /tmp/state.js /www/state.js
 
     elif [ "$fwInstalledBaseVers" = "3006" ] && \
-       ! grep -q 'write them straight to cache' "$TMP_STATE_JS"
+         ! grep -q 'write them straight to cache' "$TMP_STATE_JS"
     then
         umount /www/state.js 2>/dev/null
 
@@ -2100,7 +2100,7 @@ _NTPMerlin_GetTimeServerIDfromConfig_()
        ! diff -q "$initTimeServerPath" "$ntpxTimeServerPath" >/dev/null 2>&1 
     then
         "$initTimeServerPath" stop >/dev/null 2>&1
-        sleep 2
+        sleep 2 ; killall -q "$timeServerID"
         cp -fp "$ntpxTimeServerPath" "$initTimeServerPath"
         chmod a+x "$initTimeServerPath"
     fi
@@ -2317,9 +2317,9 @@ MainMenu()
 					printf "\nRestarting router local NTP time server...\n"
 					service restart_time >/dev/null 2>&1
 				elif _NTPMerlin_GetTimeServerIDfromConfig_ && \
-                     [ -s "/opt/etc/init.d/S77$timeServerID" ]
+				     [ -s "/opt/etc/init.d/S77$timeServerID" ]
 				then
-                    printf "\nRestarting ntpMerlin '$timeServerID' time server...\n"
+					printf "\nRestarting ntpMerlin '$timeServerID' time server...\n"
 					"/opt/etc/init.d/S77$timeServerID" restart
 				elif [ -s /opt/etc/init.d/S77ntpd ]
 				then
@@ -3164,7 +3164,7 @@ case "$1" in
 					service restart_time >/dev/null 2>&1
 					echo 'var servicestatus = "Done";' > "$SCRIPT_WEB_DIR/detect_service.js"
 				elif _NTPMerlin_GetTimeServerIDfromConfig_ && \
-                     [ -s "/opt/etc/init.d/S77$timeServerID" ]
+				     [ -s "/opt/etc/init.d/S77$timeServerID" ]
 				then
 					"/opt/etc/init.d/S77$timeServerID" restart
 					echo 'var servicestatus = "Done";' > "$SCRIPT_WEB_DIR/detect_service.js"

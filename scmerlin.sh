@@ -12,7 +12,7 @@
 ## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2025-Jul-31
+# Last Modified: 2025-Sep-04
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -28,9 +28,9 @@
 ### Start of script variables ###
 readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
-readonly SCM_VERSION="v2.5.41"
-readonly SCRIPT_VERSION="v2.5.41"
-readonly SCRIPT_VERSTAG="25073122"
+readonly SCM_VERSION="v2.5.42"
+readonly SCRIPT_VERSION="v2.5.42"
+readonly SCRIPT_VERSTAG="25090402"
 SCRIPT_BRANCH="develop"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -1897,12 +1897,36 @@ _InstallWanEventHook_()
     esac
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Jul-25] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-Sep-04] ##
+##------------------------------------------##
 _Init_WAN_Uptime_File_()
 {
     local ifaceNum  timeSecs  seedTag  wanIFaceNum  wanIFaceFile
+    local mode  seeded_any=false
+
+    mode="$(nvram get wans_mode 2>/dev/null)"
+
+    # In load-balance, seed EACH connected WAN (no early return)
+    if [ "$mode" = "lb" ]; then
+        for ifaceNum in 0 1; do
+            if [ "$(nvram get "wan${ifaceNum}_state_t")" = "2" ]; then
+                wanIFaceNum=""
+                wanIFaceFile="/tmp/wan${ifaceNum}_uptime.tmp"
+                if [ -s "$wanIFaceFile" ]; then
+                    read wanIFaceNum timeSecs seedTag < "$wanIFaceFile"
+                fi
+                if [ "$wanIFaceNum" != "$ifaceNum" ] || [ -z "$timeSecs" ]; then
+                    echo "$ifaceNum $(date +%s) SEED" > "$wanIFaceFile"
+                    sleep 1
+                fi
+                seeded_any=true
+            else
+                rm -f "/tmp/wan${ifaceNum}_uptime.tmp" 2>/dev/null
+            fi
+        done
+        $seeded_any && return 0 || return 1
+    fi
 
     for ifaceNum in 0 1
     do
@@ -1928,9 +1952,9 @@ _Init_WAN_Uptime_File_()
     return 1  # no usable WAN found #
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Jul-25] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-Sep-04] ##
+##------------------------------------------##
 Get_WAN_Uptime()
 {
     _Init_WAN_Uptime_File_
@@ -1962,6 +1986,69 @@ Get_WAN_Uptime()
             return 1
             ;;
     esac
+
+    mode="$(nvram get wans_mode 2>/dev/null)"
+
+    # Load-balance: print each connected WAN
+    if [ "$mode" = "lb" ]
+    then
+        local printed=0
+        for ifaceNum in 0 1
+        do
+            [ "$(nvram get "wan${ifaceNum}_state_t")" = "2" ] || continue
+
+            # Try nvram offset first
+            start_off="$(nvram get "wan${ifaceNum}_uptime" 2>/dev/null \
+                         | tr -d '[:space:]')"
+            case "$start_off" in
+                ''|*[!0-9]*) upsecs="";;
+                *)           upsecs="$(( sys_uptime - start_off ))";;
+            esac
+
+            # Fallback to seeded tmp file
+            approx_flag=""
+            if [ -z "$upsecs" ] || [ "$upsecs" -le 0 ]
+            then
+                wanIFaceNum=""
+                wanIFaceFile="/tmp/wan${ifaceNum}_uptime.tmp"
+                wanup_secs=""; seedTag=""
+                if [ -s "$wanIFaceFile" ]
+                then
+                    read wanIFaceNum wanup_secs seedTag < "$wanIFaceFile"
+                fi
+                if [ "$wanIFaceNum" = "$ifaceNum" ] && \
+                   echo "$wanup_secs" | grep -qE '^[0-9]+$'
+                then
+                    now_secs="$(date +%s)"
+                    if [ "$wanup_secs" -lt "$now_secs" ]
+                    then
+                        upsecs="$(( now_secs - wanup_secs ))"
+                        [ "$seedTag" = "SEED" ] && \
+                        approx_flag=" (initial-seed)"
+                    fi
+                fi
+            fi
+
+            [ -z "$upsecs" ] || [ "$upsecs" -le 0 ] && continue
+
+            days="$((upsecs/86400))"
+            hours="$((upsecs/3600%24))"
+            minutes="$((upsecs/60%60))"
+
+            [ $printed -eq 1 ] && printf " | "
+            printf "${GRNct}(wan%s):${CLRct} %s days %s hrs %s mins%s" \
+                   "$ifaceNum" "$days" "$hours" "$minutes" "$approx_flag"
+            printed=1
+        done
+
+        if [ $printed -eq 0 ]
+        then
+            printf "${REDct}No WAN events detected${CLRct}\n"
+            return 1
+        fi
+        printf "\n"
+        return 0
+    fi
 
     for ifaceNum in 0 1
     do
@@ -2906,19 +2993,28 @@ Menu_Uninstall()
 	Print_Output true "Uninstall completed" "$PASS"
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2024-Apr-28] ##
-##-------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-Sep-04] ##
+##------------------------------------------##
 WAN_IsConnected()
 {
-   local retCode=1
-   for iFaceNum in 0 1
-   do
-       if [ "$(nvram get "wan${iFaceNum}_primary")" -eq 1 ] && \
-          [ "$(nvram get "wan${iFaceNum}_state_t")" -eq 2 ]
-       then retCode=0 ; break ; fi
-   done
-   return "$retCode"
+    local retCode=1
+    local mode="$(nvram get wans_mode 2>/dev/null)"
+    if [ "$mode" = "lb" ]
+    then
+        [ "$(nvram get wan0_state_t)" = "2" ] || [ "$(nvram get wan1_state_t)" = "2" ] && return 0 || return "$retCode"
+    else
+        for iFaceNum in 0 1
+        do
+            if [ "$(nvram get "wan${i}_primary")" = "1" ] && \
+               [ "$(nvram get "wan${i}_state_t")" = "2" ]
+            then
+                retCode=0;
+                break
+            fi
+        done
+        return "$retCode"
+    fi
 }
 
 ##----------------------------------------##

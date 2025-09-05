@@ -1831,15 +1831,37 @@ Get_WAN_Uptime_JS()
 {
     local jsfile="/www/ext/scmerlin/wanuptime.js"
     local ESC="$(printf '\033')"
-    local upmsg
+    local raw wan0 wan1 combined
 
-    upmsg="$( Get_WAN_Uptime \
-          | sed "s/${ESC}\[[0-9;]*[[:alpha:]]//g" \
-          | awk 'NR==1{printf "%s",$0; next}{printf " | %s",$0}' )"
+    # Collect and strip ANSI color codes
+    raw="$( Get_WAN_Uptime 2>/dev/null \
+           | sed "s/${ESC}\[[0-9;]*[[:alpha:]]//g" )"
 
-    [ -z "$upmsg" ] && upmsg="WAN uptime: N/A"
+    # Try to pick labelled lines first (case-insensitive)
+    wan0="$(printf '%s\n' "$raw" \
+          | awk 'BEGIN{IGNORECASE=1} /^[[:space:]]*wan0:/ {sub(/^[[:space:]]*[Ww][Aa][Nn]0:[[:space:]]*/,""); print; exit}')"
+    wan1="$(printf '%s\n' "$raw" \
+          | awk 'BEGIN{IGNORECASE=1} /^[[:space:]]*wan1:/ {sub(/^[[:space:]]*[Ww][Aa][Nn]1:[[:space:]]*/,""); print; exit}')"
 
-    printf "var wan_uptime_text = '%s';\n" "$upmsg" > "$jsfile"
+    if [ -z "$wan0" ]; then
+        wan0="$(printf '%s\n' "$raw" | awk 'NF{print; exit}')"
+    fi
+    if [ -z "$wan1" ]; then
+        wan1="$(printf '%s\n' "$raw" | awk 'NF{c++; if(c==2){print; exit}}')"
+    fi
+
+    # Handle global down
+    if printf '%s' "$raw" | grep -qi 'WAN is down'; then
+        wan0="N/A"; wan1="N/A"
+    fi
+
+    # Safe JS escaping (
+    _js_escape() { printf '%s' "$1" | sed -e "s/\\\\/\\\\\\\\/g" -e "s/'/\\\\'/g"; }
+
+    {
+        printf "var wan0_uptime_text = '%s';\n" "$(_js_escape "$wan0")"
+        printf "var wan1_uptime_text = '%s';\n" "$(_js_escape "$wan1")"
+    } > "$jsfile"
 }
 
 ##----------------------------------------##
@@ -2037,7 +2059,7 @@ Get_WAN_Uptime()
             hours="$((upsecs/3600%24))"
             minutes="$((upsecs/60%60))"
 
-            printf "${GRNct}(wan%s):${CLRct} %s days %s hrs %s mins%s\n" \
+            printf "${GRNct}WAN%s:${CLRct}\t %s days %s hrs %s mins%s\n" \
                    "$ifaceNum" "$days" "$hours" "$minutes" "$approx_flag"
             printed=1
         done
@@ -2073,7 +2095,7 @@ Get_WAN_Uptime()
         days="$((upsecs/86400))"
         hours="$((upsecs/3600%24))"
         minutes="$((upsecs/60%60))"
-        printf "${GRNct}(${active_IFaceWAN}):${CLRct} %s days %s hrs %s mins\n" \
+        printf "${GRNct}${active_IFaceWAN}:${CLRct}\t %s days %s hrs %s mins\n" \
                "$days" "$hours" "$minutes"
         return 0
     fi
@@ -2122,7 +2144,7 @@ Get_WAN_Uptime()
         # If we seeded at boot, make that clear in the output #
         [ "$approx_flag" = "SEED" ] && approx_flag=" (initial-seed)" || approx_flag=""
 
-        printf "${GRNct}(${active_IFaceWAN}):${CLRct} %s days %s hrs %s mins%s\n" \
+        printf "${GRNct}${active_IFaceWAN}:${CLRct}\t %s days %s hrs %s mins%s\n" \
                "$days" "$hours" "$minutes" "$approx_flag"
         return 0
     else
@@ -2590,7 +2612,7 @@ MainMenu()
 			;;
 			wu)
 				ScriptHeader
-				printf "${GRNct}WAN Uptime ${CLRct}"
+				printf "\n${GRNct}${BOLDUNDERLN}WAN Uptime${CLRct}\n\n"
 				Get_WAN_Uptime
 				printf "\n"
 				PressEnter
@@ -3006,8 +3028,8 @@ WAN_IsConnected()
     else
         for iFaceNum in 0 1
         do
-            if [ "$(nvram get "wan${i}_primary")" = "1" ] && \
-               [ "$(nvram get "wan${i}_state_t")" = "2" ]
+            if [ "$(nvram get "wan${iFaceNum}_primary")" = "1" ] && \
+               [ "$(nvram get "wan${iFaceNum}_state_t")" = "2" ]
             then
                 retCode=0;
                 break

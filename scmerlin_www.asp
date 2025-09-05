@@ -277,27 +277,6 @@ let wu_wallStart   = 0;       // epoch seconds at snapshot
 let wu_useFallback = false;   // sticky flag
 
 /* helper ─ turn "DD HH:MM:SS", "D HH:MM:SS" or "HH:MM:SS" into seconds */
-function parseUptimeStr (s) {
-    if (typeof s !== 'string') return NaN;
-    s = s.replace(/\u00A0/g, ' ').trim();
-    if (!s) return NaN;
-
-    const parts = s.split(/\s+/);           // collapse multiple spaces
-    let days = 0, clock = '';
-
-    if (parts.length === 2) {               // "DD HH:MM:SS"
-        days  = parseInt(parts[0], 10);
-        clock = parts[1];
-    } else {                                // "HH:MM:SS"
-        clock = parts[0];
-    }
-
-    const [h, m, sec] = clock.split(':').map(n => parseInt(n, 10));
-    if ([h, m, sec].some(Number.isNaN)) return NaN;
-
-    return days * 86400 + h * 3600 + m * 60 + sec;
-}
-
 function captureBaseUptime () {
   const nowSec = Math.floor(Date.now() / 1000);
 
@@ -331,12 +310,62 @@ function isWanUp(idx){
   return !!(st && up && st.value === '2' && /^\d+$/.test(up.value));
 }
 
-function normalizeScriptText(idx, s){
-  if (!s) return `(wan${idx}): WAN is down`;
-  s = String(s).trim();
-  if (!s) return `(wan${idx}): WAN is down`;
-  if (/WAN is down/i.test(s)) return `(wan${idx}): WAN is down`;
-  return /^\(wan[01]\)\s*:/.test(s) ? s : `(wan${idx}): ${s}`;
+function parseWanCombined(text) {
+  const out = { 0: '', 1: '' };
+  if (!text) return out;
+
+  const s = String(text)
+    .replace(/\u00A0/g, ' ')   // NBSP -> space
+    .replace(/\t+/g, ' ')      // tabs -> space
+    .trim();
+
+  // Match "(wanX):"
+  const re = /\(?\bwan([01])\)?\s*:\s*([^|\r\n]+)/gi;
+  let m;
+  while ((m = re.exec(s)) !== null) {
+    const idx = parseInt(m[1], 10);
+    out[idx] = `(wan${idx}): ${m[2].trim()}`;
+  }
+
+  // Fallback: unlabeled "A | B" or just "A"
+  if (!out[0] && !out[1]) {
+    const parts = s.split(/\s*\|\s*/);
+    if (parts.length === 2) {
+      out[0] = /(wan0)/i.test(parts[0]) ? `(wan0): ${parts[0].replace(/^\(?\bwan0\)?\s*:\s*/i,'').trim()}` : parts[0].trim();
+      out[1] = /(wan1)/i.test(parts[1]) ? `(wan1): ${parts[1].replace(/^\(?\bwan1\)?\s*:\s*/i,'').trim()}` : parts[1].trim();
+    } else if (parts.length === 1) {
+      out[0] = parts[0].trim();
+    }
+  }
+  return out;
+}
+
+function normalizeScriptText(wanIdx, raw) {
+  const label = `(wan${wanIdx}): `;
+  if (raw == null) return label + 'WAN is down';
+
+  // normalize whitespace early
+  let s = String(raw).replace(/\u00A0/g, ' ').replace(/\t+/g, ' ').trim();
+  if (!s) return label + 'WAN is down';
+
+  if (s.indexOf('|') !== -1) {
+    const parts = parseWanCombined(s);
+    return parts[wanIdx] || label + 'WAN is down';
+  }
+
+  // If it’s explicitly labeled, keep only this WAN (or "down" if other WAN)
+  const m = s.match(/\b\(?wan([01])\)?\s*:\s*(.*)$/i);
+  if (m) {
+    return (parseInt(m[1], 10) === wanIdx)
+      ? label + m[2].trim()
+      : label + 'WAN is down';
+  }
+
+  // If it just looks like a duration, prefix mine
+  if (/(days?|hrs?|mins?)/i.test(s)) return label + s;
+
+  // Last resort: strip any leading "(wanX):" that slipped in, and prefix mine
+  return label + s.replace(/^\(wan[01]\)\s*:\s*/i, '');
 }
 
 function lineForWan(idx, sysNow){
@@ -366,7 +395,6 @@ function update_wanuptime(){
     const up0 = isWanUp(0);
     const up1 = isWanUp(1);
 
-    // Always paint both rows
     const t0 = document.getElementById('wanuptime_wan0_td');
     const t1 = document.getElementById('wanuptime_wan1_td');
 
@@ -374,55 +402,52 @@ function update_wanuptime(){
       if (up0){
         const u0 = sysNow - parseInt(document.getElementById('wan0_uptime').value, 10);
         t0.textContent = `(wan0): ${fmtUptime(u0)}`;
-      } else {
-        t0.textContent = `(wan0): WAN is down`;
-      }
+      } else t0.textContent = `(wan0): WAN is down`;
     }
     if (t1){
       if (up1){
         const u1 = sysNow - parseInt(document.getElementById('wan1_uptime').value, 10);
         t1.textContent = `(wan1): ${fmtUptime(u1)}`;
-      } else {
-        t1.textContent = `(wan1): WAN is down`;
-      }
+      } else t1.textContent = `(wan1): WAN is down`;
     }
 
-    // If BOTH appear down, switch to the script fallback now
     if (!up0 && !up1){
       wu_useFallback = true;
       return update_wanuptime();
     }
 
-    setTimeout(update_wanuptime, 60000); // refresh once per minute when local is good
+    setTimeout(update_wanuptime, 60000);
     return;
   }
 
-  // -------- AJAX fallback (per-row) --------
+  // -------- AJAX fallback --------
   $.ajax({
     url: '/ext/scmerlin/wanuptime.js',
     dataType: 'script',
     cache: false,
+
     success: function () {
-      let t0 = (typeof wan0_uptime_text !== 'undefined') ? wan0_uptime_text : '';
-      let t1 = (typeof wan1_uptime_text !== 'undefined') ? wan1_uptime_text : '';
-
-      // If only a single combined string exists, try to split/assign
-      if (!t0 && !t1 && typeof wan_uptime_text !== 'undefined'){
-        const s  = String(wan_uptime_text);
-        const m0 = s.match(/\(wan0\)\s*:\s*([^\r\n]+)/i);
-        const m1 = s.match(/\(wan1\)\s*:\s*([^\r\n]+)/i);
-        if (m0) t0 = m0[0];
-        if (m1) t1 = m1[0];
-        if (!m0 && !m1) t0 = s; // best effort: assume it's WAN0
-      }
-
       const el0 = document.getElementById('wanuptime_wan0_td');
       const el1 = document.getElementById('wanuptime_wan1_td');
-      if (el0) el0.textContent = normalizeScriptText(0, t0);
-      if (el1) el1.textContent = normalizeScriptText(1, t1);
 
+      if (el0 && typeof wan0_uptime_text === 'string') el0.textContent = normalizeScriptText(0, wan0_uptime_text);
+      if (el1 && typeof wan1_uptime_text === 'string') el1.textContent = normalizeScriptText(1, wan1_uptime_text);
+
+      // Optional: legacy fallback if the per-WAN vars are empty
+      if (typeof wan_uptime_text === 'string' && (!wan0_uptime_text && !wan1_uptime_text)) {
+        const parts = parseWanCombined(wan_uptime_text);
+        if (el0) el0.textContent = normalizeScriptText(0, parts[0]);
+        if (el1) el1.textContent = normalizeScriptText(1, parts[1]);
+      }
+
+      try {
+        delete window.wan0_uptime_text;
+        delete window.wan1_uptime_text;
+        delete window.wan_uptime_text;
+      } catch (e) {}
       setTimeout(update_wanuptime, 3000);
     },
+
     error: function () {
       const el0 = document.getElementById('wanuptime_wan0_td');
       const el1 = document.getElementById('wanuptime_wan1_td');
@@ -432,7 +457,6 @@ function update_wanuptime(){
     }
   });
 }
-
 
 /**----------------------------------------**/
 /** Modified by Martinski W. [2024-Jun-01] **/

@@ -299,95 +299,140 @@ function parseUptimeStr (s) {
 }
 
 function captureBaseUptime () {
-    const nowSec = Math.floor(Date.now() / 1000);
+  const nowSec = Math.floor(Date.now() / 1000);
 
-    /* boottime */
-    if (typeof boottime !== 'undefined' && /^\d+$/.test(boottime)) {
-        const bt = parseInt(boottime, 10);
-        if (bt >= 946684800) {
-            return { base: nowSec - bt, wall: nowSec };
-        }
-        return { base: bt, wall: nowSec };
-    }
+  // Prefer explicit boottime if present
+  if (typeof boottime !== 'undefined' && /^\d+$/.test(boottime)) {
+    const bt = parseInt(boottime, 10);
+    if (bt >= 946684800) return { base: nowSec - bt, wall: nowSec }; // bt is epoch
+    return { base: bt, wall: nowSec };                                // bt already uptime
+  }
 
-    /* hidden CGI field */
-    const el = document.getElementById('sys_uptime');
-    if (el && /^\d+$/.test(el.value)) {
-        return { base: parseInt(el.value, 10), wall: nowSec };
-    }
+  // Fallback: hidden sys uptime field
+  const el = document.getElementById('sys_uptime');
+  if (el && /^\d+$/.test(el.value)) {
+    return { base: parseInt(el.value, 10), wall: nowSec };
+  }
 
-    return null;                            // nothing usable
+  return null;
 }
 
-function update_wanuptime () {
+function fmtUptime(secs){
+  if (!isFinite(secs) || secs <= 0) return 'WAN is down';
+  const d = Math.floor(secs / 86400);
+  const h = Math.floor((secs % 86400) / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  return `${d} days ${h} hrs ${m} mins`;
+}
 
-    /* ---- fast path: compute locally ---- */
-    if (!wu_useFallback) {
+function isWanUp(idx){
+  const st = document.getElementById(`wan${idx}_state_t`);
+  const up = document.getElementById(`wan${idx}_uptime`);
+  return !!(st && up && st.value === '2' && /^\d+$/.test(up.value));
+}
 
-        if (!wu_inited) {
-            const snap = captureBaseUptime();
-            if (!snap)          { wu_useFallback = true; return update_wanuptime(); }
+function normalizeScriptText(idx, s){
+  if (!s) return `(wan${idx}): WAN is down`;
+  s = String(s).trim();
+  if (!s) return `(wan${idx}): WAN is down`;
+  if (/WAN is down/i.test(s)) return `(wan${idx}): WAN is down`;
+  return /^\(wan[01]\)\s*:/.test(s) ? s : `(wan${idx}): ${s}`;
+}
 
-            wu_baseSys   = snap.base;
-            wu_wallStart = snap.wall;
-            wu_inited    = true;
-        }
+function lineForWan(idx, sysNow){
+  const st = document.getElementById(`wan${idx}_state_t`);
+  const up = document.getElementById(`wan${idx}_uptime`);
+  if (!st || !up || st.value !== '2' || isNaN(parseInt(up.value,10))) {
+    return `(wan${idx}): WAN is down`;
+  }
+  const upSecs = sysNow - parseInt(up.value, 10);
+  return `(wan${idx}): ${fmtUptime(upSecs)}`;
+}
 
-        const nowWall = Math.floor(Date.now() / 1000);
-        const sysNow  = wu_baseSys + (nowWall - wu_wallStart);
-
-        let activeIf = null, upSecs = 0;
-
-        for (let i = 0; i <= 1; i++) {
-            const st = document.getElementById(`wan${i}_state_t`);
-            if (!st || st.value !== '2') continue;
-
-            const upEl = document.getElementById(`wan${i}_uptime`);
-            const off  = upEl ? parseInt(upEl.value, 10) : NaN;
-            if (isNaN(off)) continue;
-
-            upSecs = sysNow - off;
-            if (upSecs > 0) { activeIf = `wan${i}`; break; }
-        }
-
-        const td = document.getElementById('wanuptime_td');
-
-        if (activeIf) {
-            const d = Math.floor(upSecs / 86400);
-            const h = Math.floor((upSecs / 3600) % 24);
-            const m = Math.floor((upSecs / 60) % 60);
-
-            if (td) td.textContent =
-                `(${activeIf}): ${d} days ${h} hrs ${m} mins`;
-
-            setTimeout(update_wanuptime, 60000);   // next tick in 60 s
-            return;
-        }
-
-        /* no active interface → show graceful message, then fall back */
-        if (td) td.textContent = 'WAN is down';
-        wu_useFallback = true;
+function update_wanuptime(){
+  // -------- fast local path (NVRAM) --------
+  if (!wu_useFallback) {
+    if (!wu_inited) {
+      const snap = captureBaseUptime();
+      if (!snap) { wu_useFallback = true; return update_wanuptime(); }
+      wu_baseSys   = snap.base;
+      wu_wallStart = snap.wall;
+      wu_inited    = true;
     }
 
-    /* ---- AJAX fallback ---- */
-    $.ajax({
-        url      : '/ext/scmerlin/wanuptime.js',
-        dataType : 'script',
-        cache    : false,
-        success  : function () {
-            const td = document.getElementById('wanuptime_td');
-            if (typeof wan_uptime_text !== 'undefined' && td) {
-                td.textContent = wan_uptime_text;
-            }
-            setTimeout(update_wanuptime, 3000);
-        },
-        error    : function () {
-            const td = document.getElementById('wanuptime_td');
-            if (td) td.textContent = 'WAN is down';
-            setTimeout(update_wanuptime, 3000);
-        }
-    });
+    const nowWall = Math.floor(Date.now() / 1000);
+    const sysNow  = wu_baseSys + (nowWall - wu_wallStart);
+
+    const up0 = isWanUp(0);
+    const up1 = isWanUp(1);
+
+    // Always paint both rows
+    const t0 = document.getElementById('wanuptime_wan0_td');
+    const t1 = document.getElementById('wanuptime_wan1_td');
+
+    if (t0){
+      if (up0){
+        const u0 = sysNow - parseInt(document.getElementById('wan0_uptime').value, 10);
+        t0.textContent = `(wan0): ${fmtUptime(u0)}`;
+      } else {
+        t0.textContent = `(wan0): WAN is down`;
+      }
+    }
+    if (t1){
+      if (up1){
+        const u1 = sysNow - parseInt(document.getElementById('wan1_uptime').value, 10);
+        t1.textContent = `(wan1): ${fmtUptime(u1)}`;
+      } else {
+        t1.textContent = `(wan1): WAN is down`;
+      }
+    }
+
+    // If BOTH appear down, switch to the script fallback now
+    if (!up0 && !up1){
+      wu_useFallback = true;
+      return update_wanuptime();
+    }
+
+    setTimeout(update_wanuptime, 60000); // refresh once per minute when local is good
+    return;
+  }
+
+  // -------- AJAX fallback (per-row) --------
+  $.ajax({
+    url: '/ext/scmerlin/wanuptime.js',
+    dataType: 'script',
+    cache: false,
+    success: function () {
+      let t0 = (typeof wan0_uptime_text !== 'undefined') ? wan0_uptime_text : '';
+      let t1 = (typeof wan1_uptime_text !== 'undefined') ? wan1_uptime_text : '';
+
+      // If only a single combined string exists, try to split/assign
+      if (!t0 && !t1 && typeof wan_uptime_text !== 'undefined'){
+        const s  = String(wan_uptime_text);
+        const m0 = s.match(/\(wan0\)\s*:\s*([^\r\n]+)/i);
+        const m1 = s.match(/\(wan1\)\s*:\s*([^\r\n]+)/i);
+        if (m0) t0 = m0[0];
+        if (m1) t1 = m1[0];
+        if (!m0 && !m1) t0 = s; // best effort: assume it's WAN0
+      }
+
+      const el0 = document.getElementById('wanuptime_wan0_td');
+      const el1 = document.getElementById('wanuptime_wan1_td');
+      if (el0) el0.textContent = normalizeScriptText(0, t0);
+      if (el1) el1.textContent = normalizeScriptText(1, t1);
+
+      setTimeout(update_wanuptime, 3000);
+    },
+    error: function () {
+      const el0 = document.getElementById('wanuptime_wan0_td');
+      const el1 = document.getElementById('wanuptime_wan1_td');
+      if (el0) el0.textContent = `(wan0): WAN is down`;
+      if (el1) el1.textContent = `(wan1): WAN is down`;
+      setTimeout(update_wanuptime, 3000);
+    }
+  });
 }
+
 
 /**----------------------------------------**/
 /** Modified by Martinski W. [2024-Jun-01] **/
@@ -607,15 +652,20 @@ var arrayproclistlines=[],sortnameproc="CPU%",sortdirproc="desc",arraycronjobs=[
 </table>
 <tr><td align="center" style="padding: 0px;">
 <table width="100%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3" class="FormTable SettingsTable">
-<thead class="collapsible-jquery" id="wanuptime">
-<tr>
-<td colspan="3">WAN (click to expand/collapse)</td>
-</tr>
-</thead>
-<tr>
-<td class="servicename">WAN uptime</td>
-<td id="wanuptime_td" class="settingvalue"></td>
-</tr>
+  <thead class="collapsible-jquery" id="wanuptime">
+    <tr>
+      <td colspan="3">WAN (click to expand/collapse)</td>
+    </tr>
+  </thead>
+
+  <tr>
+    <td class="servicename">WAN0 Uptime</td>
+    <td id="wanuptime_wan0_td" class="settingvalue"></td>
+  </tr>
+  <tr>
+    <td class="servicename">WAN1 Uptime</td>
+    <td id="wanuptime_wan1_td" class="settingvalue"></td>
+  </tr>
 </table>
 <div style="line-height:10px;">&nbsp;</div>
 <table width="100%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3" class="FormTable">

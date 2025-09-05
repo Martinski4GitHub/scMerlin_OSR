@@ -1833,7 +1833,9 @@ Get_WAN_Uptime_JS()
     local ESC="$(printf '\033')"
     local upmsg
 
-    upmsg="$( Get_WAN_Uptime | sed "s/${ESC}\[[0-9;]*[[:alpha:]]//g" )"
+    upmsg="$( Get_WAN_Uptime \
+          | sed "s/${ESC}\[[0-9;]*[[:alpha:]]//g" \
+          | awk 'NR==1{printf "%s",$0; next}{printf " | %s",$0}' )"
 
     [ -z "$upmsg" ] && upmsg="WAN uptime: N/A"
 
@@ -2035,8 +2037,7 @@ Get_WAN_Uptime()
             hours="$((upsecs/3600%24))"
             minutes="$((upsecs/60%60))"
 
-            [ $printed -eq 1 ] && printf " | "
-            printf "${GRNct}(wan%s):${CLRct} %s days %s hrs %s mins%s" \
+            printf "${GRNct}(wan%s):${CLRct} %s days %s hrs %s mins%s\n" \
                    "$ifaceNum" "$days" "$hours" "$minutes" "$approx_flag"
             printed=1
         done
@@ -2046,7 +2047,6 @@ Get_WAN_Uptime()
             printf "${REDct}No WAN events detected${CLRct}\n"
             return 1
         fi
-        printf "\n"
         return 0
     fi
 

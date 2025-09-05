@@ -325,6 +325,20 @@ function fmtUptime(secs){
   return `${d} days ${h} hrs ${m} mins`;
 }
 
+function isWanUp(idx){
+  const st = document.getElementById(`wan${idx}_state_t`);
+  const up = document.getElementById(`wan${idx}_uptime`);
+  return !!(st && up && st.value === '2' && /^\d+$/.test(up.value));
+}
+
+function normalizeScriptText(idx, s){
+  if (!s) return `(wan${idx}): WAN is down`;
+  s = String(s).trim();
+  if (!s) return `(wan${idx}): WAN is down`;
+  if (/WAN is down/i.test(s)) return `(wan${idx}): WAN is down`;
+  return /^\(wan[01]\)\s*:/.test(s) ? s : `(wan${idx}): ${s}`;
+}
+
 function lineForWan(idx, sysNow){
   const st = document.getElementById(`wan${idx}_state_t`);
   const up = document.getElementById(`wan${idx}_uptime`);
@@ -336,7 +350,7 @@ function lineForWan(idx, sysNow){
 }
 
 function update_wanuptime(){
-  // try fast local path
+  // -------- fast local path (NVRAM) --------
   if (!wu_useFallback) {
     if (!wu_inited) {
       const snap = captureBaseUptime();
@@ -349,38 +363,76 @@ function update_wanuptime(){
     const nowWall = Math.floor(Date.now() / 1000);
     const sysNow  = wu_baseSys + (nowWall - wu_wallStart);
 
+    const up0 = isWanUp(0);
+    const up1 = isWanUp(1);
+
+    // Always paint both rows
     const t0 = document.getElementById('wanuptime_wan0_td');
     const t1 = document.getElementById('wanuptime_wan1_td');
-    if (t0) t0.textContent = lineForWan(0, sysNow);
-    if (t1) t1.textContent = lineForWan(1, sysNow);
 
-    setTimeout(update_wanuptime, 60000); // once per minute is plenty
+    if (t0){
+      if (up0){
+        const u0 = sysNow - parseInt(document.getElementById('wan0_uptime').value, 10);
+        t0.textContent = `(wan0): ${fmtUptime(u0)}`;
+      } else {
+        t0.textContent = `(wan0): WAN is down`;
+      }
+    }
+    if (t1){
+      if (up1){
+        const u1 = sysNow - parseInt(document.getElementById('wan1_uptime').value, 10);
+        t1.textContent = `(wan1): ${fmtUptime(u1)}`;
+      } else {
+        t1.textContent = `(wan1): WAN is down`;
+      }
+    }
+
+    // If BOTH appear down, switch to the script fallback now
+    if (!up0 && !up1){
+      wu_useFallback = true;
+      return update_wanuptime();
+    }
+
+    setTimeout(update_wanuptime, 60000); // refresh once per minute when local is good
     return;
   }
 
-  // fallback (keeps old behavior if fields missing)
+  // -------- AJAX fallback (per-row) --------
   $.ajax({
     url: '/ext/scmerlin/wanuptime.js',
     dataType: 'script',
     cache: false,
     success: function () {
-      const t0 = document.getElementById('wanuptime_wan0_td');
-      const t1 = document.getElementById('wanuptime_wan1_td');
-      // if the script only exposes a single text, show it on both rows
-      const text = (typeof wan_uptime_text !== 'undefined') ? wan_uptime_text : 'WAN is down';
-      if (t0) t0.textContent = text;
-      if (t1) t1.textContent = text;
+      let t0 = (typeof wan0_uptime_text !== 'undefined') ? wan0_uptime_text : '';
+      let t1 = (typeof wan1_uptime_text !== 'undefined') ? wan1_uptime_text : '';
+
+      // If only a single combined string exists, try to split/assign
+      if (!t0 && !t1 && typeof wan_uptime_text !== 'undefined'){
+        const s  = String(wan_uptime_text);
+        const m0 = s.match(/\(wan0\)\s*:\s*([^\r\n]+)/i);
+        const m1 = s.match(/\(wan1\)\s*:\s*([^\r\n]+)/i);
+        if (m0) t0 = m0[0];
+        if (m1) t1 = m1[0];
+        if (!m0 && !m1) t0 = s; // best effort: assume it's WAN0
+      }
+
+      const el0 = document.getElementById('wanuptime_wan0_td');
+      const el1 = document.getElementById('wanuptime_wan1_td');
+      if (el0) el0.textContent = normalizeScriptText(0, t0);
+      if (el1) el1.textContent = normalizeScriptText(1, t1);
+
       setTimeout(update_wanuptime, 3000);
     },
     error: function () {
-      const t0 = document.getElementById('wanuptime_wan0_td');
-      const t1 = document.getElementById('wanuptime_wan1_td');
-      if (t0) t0.textContent = 'WAN is down';
-      if (t1) t1.textContent = 'WAN is down';
+      const el0 = document.getElementById('wanuptime_wan0_td');
+      const el1 = document.getElementById('wanuptime_wan1_td');
+      if (el0) el0.textContent = `(wan0): WAN is down`;
+      if (el1) el1.textContent = `(wan1): WAN is down`;
       setTimeout(update_wanuptime, 3000);
     }
   });
 }
+
 
 /**----------------------------------------**/
 /** Modified by Martinski W. [2024-Jun-01] **/

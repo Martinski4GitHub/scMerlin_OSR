@@ -12,7 +12,7 @@
 ## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2025-Sep-04
+# Last Modified: 2025-Sep-05
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -30,7 +30,7 @@ readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
 readonly SCM_VERSION="v2.5.42"
 readonly SCRIPT_VERSION="v2.5.42"
-readonly SCRIPT_VERSTAG="25090402"
+readonly SCRIPT_VERSTAG="25090523"
 SCRIPT_BRANCH="develop"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -132,30 +132,37 @@ then Band_6G_1_Support=true ; fi
 GetWiFiVirtualInterfaceName()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then echo "" ; return 1 ; fi
-   nvram show 2>/dev/null | grep -E -m1 "^wl[0-3]_ifname=${1}" | awk -F '_' '{print $1}'
+   nvram show 2>/dev/null | grep -E -m1 "^wl[0-3]_ifname=${1}" | cut -d'_' -f1
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Feb-15] ##
+## Modified by Martinski W. [2025-Sep-05] ##
 ##----------------------------------------##
 _GetWiFiBandsSupported_()
 {
    local wifiIFNameList  wifiIFName  wifiBandInfo  wifiBandName
    local wifi5GHzCount=0  wifi6GHzCount=0  wlvifName  wifiChnList
 
-   case "$ROUTER_MODEL" in
-       "GT-BE98" | "GT-AXE16000" | \
-       "GT-AX11000" | "GT-AX11000_PRO" | "XT12")
-           Band_5G_2_Support=true
-           ;;
-       "GT-BE98" | "GT-BE98_PRO" | "RT-BE96U" | \
-       "GT-AXE16000" | "GT-AXE11000")
-           Band_6G_1_Support=true
-           ;;
-       "GT-BE98_PRO")
-           Band_6G_2_Support=true
-           ;;
-   esac
+   if [ "$ROUTER_MODEL" = "XT12" ]     || \
+      [ "$ROUTER_MODEL" = "GT-BE98" ]   || \
+      [ "$ROUTER_MODEL" = "GT-AX11000" ] || \
+      [ "$ROUTER_MODEL" = "GT-AXE16000" ] || \
+      [ "$ROUTER_MODEL" = "GT-AX11000_PRO" ]
+   then
+       Band_5G_2_Support=true
+   fi
+   if [ "$ROUTER_MODEL" = "GT-BE98" ]     || \
+      [ "$ROUTER_MODEL" = "RT-BE96U" ]    || \
+      [ "$ROUTER_MODEL" = "GT-BE98_PRO" ] || \
+      [ "$ROUTER_MODEL" = "GT-AXE16000" ] || \
+      [ "$ROUTER_MODEL" = "GT-AXE11000" ]
+   then
+       Band_6G_1_Support=true
+   fi
+   if [ "$ROUTER_MODEL" = "GT-BE98_PRO" ]
+   then
+       Band_6G_2_Support=true
+   fi
 
    wifiIFNameList="$(nvram get wl_ifnames)"
    if [ -z "$wifiIFNameList" ]
@@ -174,9 +181,9 @@ _GetWiFiBandsSupported_()
                printf "\n**ERROR**: Could not find 'Chanspec' for WiFi Interface [$wifiIFName].\n"
            fi
            wlvifName="$(GetWiFiVirtualInterfaceName "$wifiIFName")"
-           if [ -n "wlvifName" ]
+           if [ -n "$wlvifName" ]
            then
-               wifiChnList="$(nvram get ${wlvifName}_chlist)"
+               wifiChnList="$(nvram get "${wlvifName}_chlist")"
                if [ "$wifiChnList" = "1 2 3 4 5 6 7 8 9 10 11" ]
                then Band_24G_Support=true
                elif echo "$wifiChnList" | grep -qE "^36 40 44 48"
@@ -258,8 +265,8 @@ GetIFaceName()
             ;;
     esac
     if [ -z "$theIFnamePrefix" ]
-    then echo ""
-    else echo "$(nvram get "${theIFnamePrefix}_ifname")"
+    then echo
+    else nvram get "${theIFnamePrefix}_ifname"
     fi
 }
 
@@ -278,8 +285,8 @@ GetTemperatureValue()
        if [ -z "$theTemprtr" ]
        then
            wlvifName="$(GetWiFiVirtualInterfaceName "$theIFname")"
-           [ -n "wlvifName" ] && \
-           wifiRadioState="$(nvram get ${wlvifName}_radio)"
+           [ -n "$wlvifName" ] && \
+           wifiRadioState="$(nvram get "${wlvifName}_radio")"
            if [ "$wifiRadioState" = "0" ]
            then echo "[WiFi Radio for '${theIFname}' is DISABLED]"
            elif [ "$(wl -i "$theIFname" bss 2>/dev/null)" = "down" ]
@@ -1090,11 +1097,11 @@ Create_Dirs()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Apr-28] ##
+## Modified by Martinski W. [2025-Sep-05] ##
 ##----------------------------------------##
 Create_Symlinks()
 {
-	rm -rf "${SCRIPT_WEB_DIR:?}/"* 2>/dev/null
+	rm -f "${SCRIPT_WEB_DIR}"/.htm 2>/dev/null
 
 	ln -s /tmp/scmerlin-top "$SCRIPT_WEB_DIR/top.htm" 2>/dev/null
 	ln -s /tmp/addonwebpages.tmp "$SCRIPT_WEB_DIR/addonwebpages.htm" 2>/dev/null
@@ -1824,44 +1831,47 @@ Get_NVRAM_Usage()
    echo
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2025-Jul-22] ##
-##---------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Sep-05] ##
+##----------------------------------------##
 Get_WAN_Uptime_JS()
 {
-    local jsfile="/www/ext/scmerlin/wanuptime.js"
+    local jsFile="/www/ext/scmerlin/wanuptime.js"
     local ESC="$(printf '\033')"
-    local raw wan0 wan1 combined
+    local rawxStr  wan0Str=""  wan1Str=""
 
-    # Collect and strip ANSI color codes
-    raw="$( Get_WAN_Uptime 2>/dev/null \
-           | sed "s/${ESC}\[[0-9;]*[[:alpha:]]//g" )"
+    # Collect and strip ANSI color codes #
+    rawxStr="$(Get_WAN_Uptime | sed "s/${ESC}\[[0-9;]*[[:alpha:]]//g")"
 
-    # Try to pick labelled lines first (case-insensitive)
-    wan0="$(printf '%s\n' "$raw" \
-          | awk 'BEGIN{IGNORECASE=1} /^[[:space:]]*wan0:/ {sub(/^[[:space:]]*[Ww][Aa][Nn]0:[[:space:]]*/,""); print; exit}')"
-    wan1="$(printf '%s\n' "$raw" \
-          | awk 'BEGIN{IGNORECASE=1} /^[[:space:]]*wan1:/ {sub(/^[[:space:]]*[Ww][Aa][Nn]1:[[:space:]]*/,""); print; exit}')"
-
-    if [ -z "$wan0" ]; then
-        wan0="$(printf '%s\n' "$raw" | awk 'NF{print; exit}')"
-    fi
-    if [ -z "$wan1" ]; then
-        wan1="$(printf '%s\n' "$raw" | awk 'NF{c++; if(c==2){print; exit}}')"
+    if [ -n "$rawxStr" ] && echo "$rawxStr" | grep -qiE '^WAN[0-1]:.*'
+    then
+        rawxStr="$(echo "$rawxStr" | tr '\t' ' ' | tr -s ' ')"
+        wan0Str="$(echo "$rawxStr" | grep -iE "^WAN0:.*" | cut -d ' ' -f2-)"
+        wan1Str="$(echo "$rawxStr" | grep -iE "^WAN1:.*" | cut -d ' ' -f2-)"
     fi
 
-    # Handle global down
-    if printf '%s' "$raw" | grep -qi 'WAN is down'; then
-        wan0="N/A"; wan1="N/A"
+    if [ -z "$wan0Str" ]
+    then
+        wan0Str="$(printf '%s\n' "$rawxStr" | awk 'NF{print; exit}')"
+    fi
+    if [ -z "$wan1Str" ]
+    then
+        wan1Str="$(printf '%s\n' "$rawxStr" | awk 'NF{c++; if(c==2){print; exit}}')"
     fi
 
-    # Safe JS escaping (
+    # Handle global down #
+    if printf '%s' "$rawxStr" | grep -qi 'WAN is down'
+    then
+        wan0Str="N/A"; wan1Str="N/A"
+    fi
+
+    # Safe JS escaping #
     _js_escape() { printf '%s' "$1" | sed -e "s/\\\\/\\\\\\\\/g" -e "s/'/\\\\'/g"; }
 
     {
-        printf "var wan0_uptime_text = '%s';\n" "$(_js_escape "$wan0")"
-        printf "var wan1_uptime_text = '%s';\n" "$(_js_escape "$wan1")"
-    } > "$jsfile"
+        printf "var wan0_uptime_text = '%s';\n" "$(_js_escape "$wan0Str")"
+        printf "var wan1_uptime_text = '%s';\n" "$(_js_escape "$wan1Str")"
+    } > "$jsFile"
 }
 
 ##----------------------------------------##
@@ -1921,35 +1931,40 @@ _InstallWanEventHook_()
     esac
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Sep-04] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Sep-05] ##
+##----------------------------------------##
 _Init_WAN_Uptime_File_()
 {
     local ifaceNum  timeSecs  seedTag  wanIFaceNum  wanIFaceFile
-    local mode  seeded_any=false
+    local wansMode  seeded_any=false
 
-    mode="$(nvram get wans_mode 2>/dev/null)"
+    wansMode="$(nvram get wans_mode 2>/dev/null)"
 
-    # In load-balance, seed EACH connected WAN (no early return)
-    if [ "$mode" = "lb" ]; then
-        for ifaceNum in 0 1; do
-            if [ "$(nvram get "wan${ifaceNum}_state_t")" = "2" ]; then
-                wanIFaceNum=""
+    # In load-balance, seed EACH connected WAN (no early return) #
+    if [ "$wansMode" = "lb" ]
+    then
+        for ifaceNum in 0 1
+        do
+            if [ "$(nvram get "wan${ifaceNum}_state_t")" = "2" ]
+            then
+                wanIFaceNum="" ; timeSecs=""
                 wanIFaceFile="/tmp/wan${ifaceNum}_uptime.tmp"
-                if [ -s "$wanIFaceFile" ]; then
-                    read wanIFaceNum timeSecs seedTag < "$wanIFaceFile"
+                if [ -s "$wanIFaceFile" ]
+                then
+                    read -r wanIFaceNum timeSecs seedTag < "$wanIFaceFile"
                 fi
-                if [ "$wanIFaceNum" != "$ifaceNum" ] || [ -z "$timeSecs" ]; then
+                if [ "$wanIFaceNum" != "$ifaceNum" ] || [ -z "$timeSecs" ]
+                then
                     echo "$ifaceNum $(date +%s) SEED" > "$wanIFaceFile"
                     sleep 1
                 fi
                 seeded_any=true
             else
-                rm -f "/tmp/wan${ifaceNum}_uptime.tmp" 2>/dev/null
+                rm -f "/tmp/wan${ifaceNum}_uptime.tmp"
             fi
         done
-        $seeded_any && return 0 || return 1
+        "$seeded_any" && return 0 || return 1
     fi
 
     for ifaceNum in 0 1
@@ -1961,11 +1976,11 @@ _Init_WAN_Uptime_File_()
             wanIFaceFile="/tmp/wan${ifaceNum}_uptime.tmp"
             if [ -s "$wanIFaceFile" ]
             then
-                read wanIFaceNum timeSecs seedTag < "$wanIFaceFile"
+                read -r wanIFaceNum timeSecs seedTag < "$wanIFaceFile"
             fi
 
             if [ -n "$wanIFaceNum" ] && [ "$ifaceNum" = "$wanIFaceNum" ]
-            then return 0   # Already seeded #
+            then return 0  # Already SEEDED #
             fi
             echo "$ifaceNum $(date +%s) SEED" > "$wanIFaceFile"
             sleep 1
@@ -1973,22 +1988,32 @@ _Init_WAN_Uptime_File_()
         fi
     done
 
-    return 1  # no usable WAN found #
+    return 1  # NO usable WAN found #
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Sep-04] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Sep-05] ##
+##----------------------------------------##
 Get_WAN_Uptime()
 {
     _Init_WAN_Uptime_File_
 
-    local ifaceNum  upsecs  uptime  days  hours  minutes
+    local ifaceNum  upsecs  days  hours  minutes  wansMode
     local wanup_secs  now_secs  seedTag  approx_flag
     local active_IFaceWAN=""  wanIFaceNum  wanIFaceFile
 
+    _IsNumericStr_()
+    {
+        if [ $# -eq 0 ] || [ -z "$1" ] || \
+           ! echo "$1" | grep -qE '^[0-9]+$'
+        then return 1
+        else return 0
+        fi
+    }
+
     # Abort if both WANs are down #
-    if [ "$(nvram get wan0_state_t)" != "2" ] && [ "$(nvram get wan1_state_t)" != "2" ]
+    if [ "$(nvram get wan0_state_t)" != "2" ] && \
+       [ "$(nvram get wan1_state_t)" != "2" ]
     then
         printf "${REDct}WAN is down${CLRct}\n"
         return 1
@@ -2004,44 +2029,44 @@ Get_WAN_Uptime()
     fi
 
     # Validate that we now have a purely numeric value #
-    case "$sys_uptime" in
-        ''|*[!0-9]*)
-            printf "${REDct}Unable to determine numeric system uptime${CLRct}\n"
-            return 1
-            ;;
-    esac
+    if ! _IsNumericStr_ "$sys_uptime"
+    then
+        printf "${REDct}Unable to determine system uptime${CLRct}\n"
+        return 1
+    fi
 
-    mode="$(nvram get wans_mode 2>/dev/null)"
+    wansMode="$(nvram get wans_mode 2>/dev/null)"
 
-    # Load-balance: print each connected WAN
-    if [ "$mode" = "lb" ]
+    # Load-balance: print each connected WAN #
+    if [ "$wansMode" = "lb" ]
     then
         local printed=0
         for ifaceNum in 0 1
         do
             [ "$(nvram get "wan${ifaceNum}_state_t")" = "2" ] || continue
 
-            # Try nvram offset first
-            start_off="$(nvram get "wan${ifaceNum}_uptime" 2>/dev/null \
-                         | tr -d '[:space:]')"
-            case "$start_off" in
-                ''|*[!0-9]*) upsecs="";;
-                *)           upsecs="$(( sys_uptime - start_off ))";;
-            esac
+            # Try nvram offset first #
+            start_off="$(nvram get "wan${ifaceNum}_uptime" 2>/dev/null | \
+                       tr -d '[:space:]')"
 
-            # Fallback to seeded tmp file
+            if ! _IsNumericStr_ "$start_off"
+            then upsecs=""
+            else upsecs="$(( sys_uptime - start_off ))"
+            fi
+
+            # Fallback to seeded temp file #
             approx_flag=""
             if [ -z "$upsecs" ] || [ "$upsecs" -le 0 ]
             then
                 wanIFaceNum=""
                 wanIFaceFile="/tmp/wan${ifaceNum}_uptime.tmp"
-                wanup_secs=""; seedTag=""
+                wanup_secs="" ; seedTag=""
                 if [ -s "$wanIFaceFile" ]
                 then
-                    read wanIFaceNum wanup_secs seedTag < "$wanIFaceFile"
+                    read -r wanIFaceNum wanup_secs seedTag < "$wanIFaceFile"
                 fi
                 if [ "$wanIFaceNum" = "$ifaceNum" ] && \
-                   echo "$wanup_secs" | grep -qE '^[0-9]+$'
+                   _IsNumericStr_ "$wanup_secs"
                 then
                     now_secs="$(date +%s)"
                     if [ "$wanup_secs" -lt "$now_secs" ]
@@ -2079,8 +2104,12 @@ Get_WAN_Uptime()
         then continue
         fi
 
-        start_off="$(nvram get "wan${ifaceNum}_uptime" 2>/dev/null | tr -d '[:space:]')"
-        case "$start_off" in ''|*[!0-9]*) continue ;; esac
+        start_off="$(nvram get "wan${ifaceNum}_uptime" 2>/dev/null | \
+                   tr -d '[:space:]')"
+
+        if ! _IsNumericStr_ "$start_off"
+        then continue
+        fi
 
         upsecs="$(( sys_uptime - start_off ))"
         [ "$upsecs" -le 0 ] && continue
@@ -2112,17 +2141,20 @@ Get_WAN_Uptime()
         wanIFaceFile="/tmp/wan${ifaceNum}_uptime.tmp"
         if [ -s "$wanIFaceFile" ]
         then
-            read wanIFaceNum wanup_secs seedTag < "$wanIFaceFile"
+            read -r wanIFaceNum wanup_secs seedTag < "$wanIFaceFile"
         fi
 
         case "$wanIFaceNum" in
-            0) active_IFaceWAN="wan0" ;;
-            1) active_IFaceWAN="wan1" ;;
+            0) active_IFaceWAN="WAN0" ;;
+            1) active_IFaceWAN="WAN1" ;;
             *) active_IFaceWAN="" ;;  # unknown ifaceNum = ignore file #
         esac
 
         # Sanity check the parsed seconds #
-        case "$wanup_secs" in ''|*[!0-9]*) active_IFaceWAN="" ;; esac
+        if ! _IsNumericStr_ "$wanup_secs"
+        then
+            active_IFaceWAN=""
+        fi
         now_secs="$(date +%s)"
 
         if [ -n "$active_IFaceWAN" ] && [ "$wanup_secs" -lt "$now_secs" ]
@@ -3015,28 +3047,33 @@ Menu_Uninstall()
 	Print_Output true "Uninstall completed" "$PASS"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Sep-04] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Sep-05] ##
+##----------------------------------------##
 WAN_IsConnected()
 {
     local retCode=1
-    local mode="$(nvram get wans_mode 2>/dev/null)"
-    if [ "$mode" = "lb" ]
+    local wansMode="$(nvram get wans_mode 2>/dev/null)"
+
+    if [ "$wansMode" = "lb" ]
     then
-        [ "$(nvram get wan0_state_t)" = "2" ] || [ "$(nvram get wan1_state_t)" = "2" ] && return 0 || return "$retCode"
-    else
-        for iFaceNum in 0 1
-        do
-            if [ "$(nvram get "wan${iFaceNum}_primary")" = "1" ] && \
-               [ "$(nvram get "wan${iFaceNum}_state_t")" = "2" ]
-            then
-                retCode=0;
-                break
-            fi
-        done
-        return "$retCode"
+        if [ "$(nvram get wan0_state_t)" = "2" ] || \
+           [ "$(nvram get wan1_state_t)" = "2" ]
+        then return 0
+        else return 1
+        fi
     fi
+
+    for iFaceNum in 0 1
+    do
+        if [ "$(nvram get "wan${iFaceNum}_primary")" = "1" ] && \
+           [ "$(nvram get "wan${iFaceNum}_state_t")" = "2" ]
+        then
+            retCode=0
+            break
+        fi
+    done
+    return "$retCode"
 }
 
 ##----------------------------------------##
@@ -3354,7 +3391,7 @@ case "$1" in
 
 			if [ ! -s "$wanIFaceFile" ]
 			then timeSecs="$(date +%s)"
-			else read ifaceNum timeSecs seedTag < "$wanIFaceFile"
+			else read -r ifaceNum timeSecs seedTag < "$wanIFaceFile"
 			fi
 
 			if [ "$(nvram get "wan${wanIFaceNum}_state_t")" = "2" ]

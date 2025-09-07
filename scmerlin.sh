@@ -113,7 +113,7 @@ readonly SUPPORTstr="$(nvram get rc_support)"
 
 Band_24G_Support=false
 Band_5G_1_Support=false
-Band_5G_2_support=false
+Band_5G_2_Support=false
 Band_6G_1_Support=false
 Band_6G_2_Support=false
 
@@ -143,26 +143,26 @@ _GetWiFiBandsSupported_()
    local wifiIFNameList  wifiIFName  wifiBandInfo  wifiBandName
    local wifi5GHzCount=0  wifi6GHzCount=0  wlvifName  wifiChnList
 
-   if [ "$ROUTER_MODEL" = "XT12" ]     || \
-      [ "$ROUTER_MODEL" = "GT-BE98" ]   || \
-      [ "$ROUTER_MODEL" = "GT-AX11000" ] || \
-      [ "$ROUTER_MODEL" = "GT-AXE16000" ] || \
-      [ "$ROUTER_MODEL" = "GT-AX11000_PRO" ]
-   then
-       Band_5G_2_Support=true
-   fi
-   if [ "$ROUTER_MODEL" = "GT-BE98" ]     || \
-      [ "$ROUTER_MODEL" = "RT-BE96U" ]    || \
-      [ "$ROUTER_MODEL" = "GT-BE98_PRO" ] || \
-      [ "$ROUTER_MODEL" = "GT-AXE16000" ] || \
-      [ "$ROUTER_MODEL" = "GT-AXE11000" ]
-   then
-       Band_6G_1_Support=true
-   fi
-   if [ "$ROUTER_MODEL" = "GT-BE98_PRO" ]
-   then
-       Band_6G_2_Support=true
-   fi
+    case "$ROUTER_MODEL" in
+        "GT-BE98")
+            Band_5G_2_Support=true
+            Band_6G_1_Support=true
+            ;;
+        "GT-BE98_PRO")
+            Band_6G_1_Support=true
+            Band_6G_2_Support=true
+            ;;
+        "GT-AXE16000")
+            Band_5G_2_Support=true
+            Band_6G_1_Support=true
+            ;;
+        "GT-AX11000" | "GT-AX11000_PRO" | "XT12")
+            Band_5G_2_Support=true
+            ;;
+        "RT-BE96U" | "GT-AXE11000")
+            Band_6G_1_Support=true
+            ;;
+    esac
 
    wifiIFNameList="$(nvram get wl_ifnames)"
    if [ -z "$wifiIFNameList" ]
@@ -201,7 +201,7 @@ _GetWiFiBandsSupported_()
                    ;;
              5GHz) let wifi5GHzCount++
                    [ "$wifi5GHzCount" -eq 1 ] && Band_5G_1_Support=true
-                   [ "$wifi5GHzCount" -eq 2 ] && Band_5G_2_support=true
+                   [ "$wifi5GHzCount" -eq 2 ] && Band_5G_2_Support=true
                    ;;
              6GHz) let wifi6GHzCount++
                    [ "$wifi6GHzCount" -eq 1 ] && Band_6G_1_Support=true
@@ -247,7 +247,7 @@ GetIFaceName()
             if [ "$ROUTER_MODEL" = "GT-BE98" ] || \
                [ "$ROUTER_MODEL" = "GT-AXE16000" ]
             then theIFnamePrefix="wl1"
-            elif "$Band_5G_2_support"
+            elif "$Band_5G_2_Support"
             then theIFnamePrefix="wl2"
             fi
             ;;
@@ -308,8 +308,8 @@ GetTemperatureString()
     then printf "${REDct}*Unknown*${CLRct}"
     fi
     if ! echo "$1" | grep -qE "^[0-9].*"
-    then printf "${REDct}%s${CLRct}" "$theTemptrVal"
-    else printf "${GRNct}%s°C${CLRct}" "$theTemptrVal"
+    then printf "${REDct}%s${CLRct}" "$1"
+    else printf "${GRNct}%s°C${CLRct}" "$1"
     fi
 }
 

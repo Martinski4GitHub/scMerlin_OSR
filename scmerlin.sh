@@ -308,8 +308,8 @@ GetTemperatureString()
     then printf "${REDct}*Unknown*${CLRct}"
     fi
     if ! echo "$1" | grep -qE "^[0-9].*"
-    then printf "${REDct}%s${CLRct}" "$1"
-    else printf "${GRNct}%s°C${CLRct}" "$1"
+    then printf "${REDct}%s${CLRct}" "$theTemptrVal"
+    else printf "${GRNct}%s°C${CLRct}" "$theTemptrVal"
     fi
 }
 
@@ -1849,6 +1849,9 @@ Get_WAN_Uptime_JS()
         wan0Str="$(echo "$rawxStr" | grep -iE "^WAN0:.*" | cut -d ' ' -f2-)"
         wan1Str="$(echo "$rawxStr" | grep -iE "^WAN1:.*" | cut -d ' ' -f2-)"
     fi
+
+    [ -z "$wan0Str" ] && wan0Str="WAN is down"
+    [ -z "$wan1Str" ] && wan1Str="WAN is down"
 
     if [ -z "$wan0Str" ]
     then

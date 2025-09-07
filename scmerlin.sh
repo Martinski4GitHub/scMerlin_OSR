@@ -2682,7 +2682,7 @@ MainMenu()
 					break
 				fi
 
-				if "$Band_5G_2_support"
+				if "$Band_5G_2_Support"
 				then
 					theTemptrVal="$(GetTemperatureValue "5GHz_1")"
 					printf "5 GHz-1: %s\n" "$(GetTemperatureString "$theTemptrVal")"

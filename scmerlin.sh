@@ -143,26 +143,26 @@ _GetWiFiBandsSupported_()
    local wifiIFNameList  wifiIFName  wifiBandInfo  wifiBandName
    local wifi5GHzCount=0  wifi6GHzCount=0  wlvifName  wifiChnList
 
-    case "$ROUTER_MODEL" in
-        "GT-BE98")
-            Band_5G_2_Support=true
-            Band_6G_1_Support=true
-            ;;
-        "GT-BE98_PRO")
-            Band_6G_1_Support=true
-            Band_6G_2_Support=true
-            ;;
-        "GT-AXE16000")
-            Band_5G_2_Support=true
-            Band_6G_1_Support=true
-            ;;
-        "GT-AX11000" | "GT-AX11000_PRO" | "XT12")
-            Band_5G_2_Support=true
-            ;;
-        "RT-BE96U" | "GT-AXE11000")
-            Band_6G_1_Support=true
-            ;;
-    esac
+   if [ "$ROUTER_MODEL" = "XT12" ]     || \
+      [ "$ROUTER_MODEL" = "GT-BE98" ]   || \
+      [ "$ROUTER_MODEL" = "GT-AX11000" ] || \
+      [ "$ROUTER_MODEL" = "GT-AXE16000" ] || \
+      [ "$ROUTER_MODEL" = "GT-AX11000_PRO" ]
+   then
+       Band_5G_2_Support=true
+   fi
+   if [ "$ROUTER_MODEL" = "GT-BE98" ]     || \
+      [ "$ROUTER_MODEL" = "RT-BE96U" ]    || \
+      [ "$ROUTER_MODEL" = "GT-BE98_PRO" ] || \
+      [ "$ROUTER_MODEL" = "GT-AXE16000" ] || \
+      [ "$ROUTER_MODEL" = "GT-AXE11000" ]
+   then
+       Band_6G_1_Support=true
+   fi
+   if [ "$ROUTER_MODEL" = "GT-BE98_PRO" ]
+   then
+       Band_6G_2_Support=true
+   fi
 
    wifiIFNameList="$(nvram get wl_ifnames)"
    if [ -z "$wifiIFNameList" ]

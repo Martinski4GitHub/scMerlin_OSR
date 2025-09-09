@@ -12,7 +12,7 @@
 ## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2025-Sep-05
+# Last Modified: 2025-Sep-07
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -1831,9 +1831,9 @@ Get_NVRAM_Usage()
    echo
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Sep-05] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-Sep-08] ##
+##------------------------------------------##
 Get_WAN_Uptime_JS()
 {
     local jsFile="/www/ext/scmerlin/wanuptime.js"
@@ -1843,32 +1843,19 @@ Get_WAN_Uptime_JS()
     # Collect and strip ANSI color codes #
     rawxStr="$(Get_WAN_Uptime | sed "s/${ESC}\[[0-9;]*[[:alpha:]]//g")"
 
-    if [ -n "$rawxStr" ] && echo "$rawxStr" | grep -qiE '^WAN[0-1]:.*'
+    # Normalize whitespace; parse only exact labels #
+    if [ -n "$rawxStr" ]
     then
         rawxStr="$(echo "$rawxStr" | tr '\t' ' ' | tr -s ' ')"
-        wan0Str="$(echo "$rawxStr" | grep -iE "^WAN0:.*" | cut -d ' ' -f2-)"
-        wan1Str="$(echo "$rawxStr" | grep -iE "^WAN1:.*" | cut -d ' ' -f2-)"
+        wan0Str="$(printf '%s\n' "$rawxStr" | grep -iE '^WAN0:.*' | cut -d ' ' -f2-)"
+        wan1Str="$(printf '%s\n' "$rawxStr" | grep -iE '^WAN1:.*' | cut -d ' ' -f2-)"
     fi
 
+    # Clear misleading fallbacks; set explicit down text #
     [ -z "$wan0Str" ] && wan0Str="WAN is down"
     [ -z "$wan1Str" ] && wan1Str="WAN is down"
 
-    if [ -z "$wan0Str" ]
-    then
-        wan0Str="$(printf '%s\n' "$rawxStr" | awk 'NF{print; exit}')"
-    fi
-    if [ -z "$wan1Str" ]
-    then
-        wan1Str="$(printf '%s\n' "$rawxStr" | awk 'NF{c++; if(c==2){print; exit}}')"
-    fi
-
-    # Handle global down #
-    if printf '%s' "$rawxStr" | grep -qi 'WAN is down'
-    then
-        wan0Str="N/A"; wan1Str="N/A"
-    fi
-
-    # Safe JS escaping #
+    # Safe JS escaping
     _js_escape() { printf '%s' "$1" | sed -e "s/\\\\/\\\\\\\\/g" -e "s/'/\\\\'/g"; }
 
     {
@@ -3385,7 +3372,22 @@ case "$1" in
 		exit 0
 	;;
 	wan_event)
-		wanIFaceNum="$2"   # 0 = primary WAN, 1 = secondary WAN #
+		# Decide active WAN from NVRAM primary flags (fallback: connected state)
+		p0="$(nvram get wan0_primary)"
+		p1="$(nvram get wan1_primary)"
+		if [ "$p0" = "1" ] && [ "$p1" != "1" ]; then
+			wanIFaceNum="0"
+		elif [ "$p1" = "1" ] && [ "$p0" != "1" ]; then
+			wanIFaceNum="1"
+		else
+			if [ "$(nvram get wan0_state_t)" = "2" ]; then
+                wanIFaceNum="0"
+			elif [ "$(nvram get wan1_state_t)" = "2" ]; then
+                wanIFaceNum="1"
+			else
+                wanIFaceNum="0"
+			fi
+		fi
 		wanIFaceFile="/tmp/wan${wanIFaceNum}_uptime.tmp"
 
 		if [ "$3" = "connected" ]

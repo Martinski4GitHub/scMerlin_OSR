@@ -3372,27 +3372,30 @@ case "$1" in
 		exit 0
 	;;
 	wan_event)
-		# Decide active WAN from NVRAM primary flags (fallback: connected state)
-		p0="$(nvram get wan0_primary)"
-		p1="$(nvram get wan1_primary)"
-		if [ "$p0" = "1" ] && [ "$p1" != "1" ]; then
-			wanIFaceNum="0"
-		elif [ "$p1" = "1" ] && [ "$p0" != "1" ]; then
-			wanIFaceNum="1"
-		else
-			if [ "$(nvram get wan0_state_t)" = "2" ]; then
-                wanIFaceNum="0"
-			elif [ "$(nvram get wan1_state_t)" = "2" ]; then
-                wanIFaceNum="1"
-			else
-                wanIFaceNum="0"
-			fi
-		fi
-		wanIFaceFile="/tmp/wan${wanIFaceNum}_uptime.tmp"
-
 		if [ "$3" = "connected" ]
 		then
 			NTP_Ready noLockCheck   # Make sure clock is synced #
+
+			# Decide active WAN from NVRAM primary flags (fallback: connected state)
+			p0="$(nvram get wan0_primary)"
+			p1="$(nvram get wan1_primary)"
+			if [ "$p0" = "1" ] && [ "$p1" != "1" ]; then
+				wanIFaceNum="0"
+			elif [ "$p1" = "1" ] && [ "$p0" != "1" ]; then
+				wanIFaceNum="1"
+			else
+				if [ "$(nvram get wan0_state_t)" = "2" ]; then
+                	wanIFaceNum="0"
+				elif [ "$(nvram get wan1_state_t)" = "2" ]; then
+                	wanIFaceNum="1"
+				else
+                	wanIFaceNum="0"
+				fi
+			fi
+			wanIFaceFile="/tmp/wan${wanIFaceNum}_uptime.tmp"
+
+			otherIF=$([ "$wanIFaceNum" = "0" ] && echo 1 || echo 0)
+			rm -f "/tmp/wan${otherIF}_uptime.tmp"
 
 			if [ ! -s "$wanIFaceFile" ]
 			then timeSecs="$(date +%s)"

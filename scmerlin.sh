@@ -3422,7 +3422,6 @@ case "$1" in
             then
                 rm -f "/tmp/wan${2}_uptime.tmp"
             fi
-            rm -f /tmp/wan_uptime.tmp
         fi
         exit 0
     ;;

@@ -3371,48 +3371,61 @@ case "$1" in
 		fi
 		exit 0
 	;;
-	wan_event)
-		if [ "$3" = "connected" ]
-		then
-			NTP_Ready noLockCheck   # Make sure clock is synced #
+    wan_event)
+        wansMode="$(nvram get wans_mode 2>/dev/null)"
 
-			# Decide active WAN from NVRAM primary flags (fallback: connected state)
-			p0="$(nvram get wan0_primary)"
-			p1="$(nvram get wan1_primary)"
-			if [ "$p0" = "1" ] && [ "$p1" != "1" ]; then
-				wanIFaceNum="0"
-			elif [ "$p1" = "1" ] && [ "$p0" != "1" ]; then
-				wanIFaceNum="1"
-			else
-				if [ "$(nvram get wan0_state_t)" = "2" ]; then
-                	wanIFaceNum="0"
-				elif [ "$(nvram get wan1_state_t)" = "2" ]; then
-                	wanIFaceNum="1"
-				else
-                	wanIFaceNum="0"
-				fi
-			fi
-			wanIFaceFile="/tmp/wan${wanIFaceNum}_uptime.tmp"
+        if [ "$3" = "connected" ]
+        then
+            NTP_Ready noLockCheck   # Make sure clock is synced #
 
-			otherIF=$([ "$wanIFaceNum" = "0" ] && echo 1 || echo 0)
-			rm -f "/tmp/wan${otherIF}_uptime.tmp"
+            if [ "$wansMode" = "lb" ]; then
+                # In load-balance, trust the event's iface ($2) and don't touch the other file
+                wanIFaceNum="$2"    # 0 or 1
+            else
+                # Failover/primary mode: pick active by primary flags (fallback to connected state)
+                p0="$(nvram get wan0_primary)"
+                p1="$(nvram get wan1_primary)"
+                if [ "$p0" = "1" ] && [ "$p1" != "1" ]; then
+                    wanIFaceNum="0"
+                elif [ "$p1" = "1" ] && [ "$p0" != "1" ]; then
+                    wanIFaceNum="1"
+                else
+                    if [ "$(nvram get wan0_state_t)" = "2" ]; then
+                        wanIFaceNum="0"
+                    elif [ "$(nvram get wan1_state_t)" = "2" ]; then
+                        wanIFaceNum="1"
+                    else
+                        wanIFaceNum="0"
+                    fi
+                fi
+                # In non-LB, clear the other WAN's file to avoid stale reads
+                otherIF=$([ "$wanIFaceNum" = "0" ] && echo 1 || echo 0)
+                rm -f "/tmp/wan${otherIF}_uptime.tmp"
+            fi
 
-			if [ ! -s "$wanIFaceFile" ]
-			then timeSecs="$(date +%s)"
-			else read -r ifaceNum timeSecs seedTag < "$wanIFaceFile"
-			fi
+            wanIFaceFile="/tmp/wan${wanIFaceNum}_uptime.tmp"
 
-			if [ "$(nvram get "wan${wanIFaceNum}_state_t")" = "2" ]
-			then
-			    echo "$wanIFaceNum $timeSecs" > "$wanIFaceFile"
-			else
-			    rm -f "$wanIFaceFile"
-			fi
-		else
-			rm -f "$wanIFaceFile" /tmp/wan_uptime.tmp
-		fi
-		exit 0
-	;;
+            if [ ! -s "$wanIFaceFile" ]; then
+                timeSecs="$(date +%s)"
+            else
+                read -r ifaceNum timeSecs seedTag < "$wanIFaceFile"
+            fi
+
+            if [ "$(nvram get "wan${wanIFaceNum}_state_t")" = "2" ]; then
+                echo "$wanIFaceNum $timeSecs" > "$wanIFaceFile"
+            else
+                rm -f "$wanIFaceFile"
+            fi
+        else
+            # Disconnected/other event: clean up only the iface that raised the event (safe in both modes)
+            if [ -n "$2" ] 
+            then
+                rm -f "/tmp/wan${2}_uptime.tmp"
+            fi
+            rm -f /tmp/wan_uptime.tmp
+        fi
+        exit 0
+    ;;
 	update)
 		Update_Version
 		exit 0

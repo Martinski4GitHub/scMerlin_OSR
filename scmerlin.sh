@@ -1844,11 +1844,11 @@ Get_WAN_Uptime_JS()
     rawxStr="$(Get_WAN_Uptime | sed "s/${ESC}\[[0-9;]*[[:alpha:]]//g")"
 
     # Normalize whitespace; parse only exact labels #
-    if [ -n "$rawxStr" ]
+    if [ -n "$rawxStr" ] && echo "$rawxStr" | grep -qiE '^WAN[0-1]:.*'
     then
         rawxStr="$(echo "$rawxStr" | tr '\t' ' ' | tr -s ' ')"
-        wan0Str="$(printf '%s\n' "$rawxStr" | grep -iE '^WAN0:.*' | cut -d ' ' -f2-)"
-        wan1Str="$(printf '%s\n' "$rawxStr" | grep -iE '^WAN1:.*' | cut -d ' ' -f2-)"
+        wan0Str="$(echo "$rawxStr" | grep -iE "^WAN0:.*" | cut -d ' ' -f2-)"
+        wan1Str="$(echo "$rawxStr" | grep -iE "^WAN1:.*" | cut -d ' ' -f2-)"
     fi
 
     # Clear misleading fallbacks; set explicit down text #
@@ -3404,12 +3404,7 @@ case "$1" in
             fi
 
             wanIFaceFile="/tmp/wan${wanIFaceNum}_uptime.tmp"
-
-            if [ ! -s "$wanIFaceFile" ]; then
-                timeSecs="$(date +%s)"
-            else
-                read -r ifaceNum timeSecs seedTag < "$wanIFaceFile"
-            fi
+            timeSecs="$(date +%s)"
 
             if [ "$(nvram get "wan${wanIFaceNum}_state_t")" = "2" ]; then
                 echo "$wanIFaceNum $timeSecs" > "$wanIFaceFile"

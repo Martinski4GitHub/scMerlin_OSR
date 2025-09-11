@@ -3405,8 +3405,9 @@ case "$1" in
             else
                 rm -f "$wanIFaceFile"
             fi
-        else
-            # Disconnected/other event: clean up only the iface that raised the event (safe in both modes)
+        elif [ "$3" = "disconnected" ] || [ "$3" = "stopping" ] || [ "$3" = "stopped" ] || [ "$3" = "disabled" ]
+        then
+            # Disconnected/other events: clean up only the iface that raised the event (safe in both modes)
             if [ -n "$2" ] 
             then
                 rm -f "/tmp/wan${2}_uptime.tmp"

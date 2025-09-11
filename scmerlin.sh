@@ -3045,15 +3045,6 @@ WAN_IsConnected()
     local retCode=1
     local wansMode="$(nvram get wans_mode 2>/dev/null)"
 
-    if [ "$wansMode" = "lb" ]
-    then
-        if [ "$(nvram get wan0_state_t)" = "2" ] || \
-           [ "$(nvram get wan1_state_t)" = "2" ]
-        then return 0
-        else return 1
-        fi
-    fi
-
     for iFaceNum in 0 1
     do
         if [ "$(nvram get "wan${iFaceNum}_primary")" = "1" ] && \
@@ -3381,20 +3372,24 @@ case "$1" in
                 wanIFaceNum="$2"    # 0 or 1
             else
                 # Failover/primary mode: pick active by primary flags (fallback to connected state)
-                p0="$(nvram get wan0_primary)"
-                p1="$(nvram get wan1_primary)"
-                if [ "$p0" = "1" ] && [ "$p1" != "1" ]; then
+                primary0="$(nvram get wan0_primary)"
+                primary1="$(nvram get wan1_primary)"
+                if [ "$primary0" = "1" ] && [ "$primary1" != "1" ]
+                then
                     wanIFaceNum="0"
-                elif [ "$p1" = "1" ] && [ "$p0" != "1" ]; then
+                elif [ "$primary1" = "1" ] && [ "$primary0" != "1" ]
+                then
                     wanIFaceNum="1"
                 else
-                    if [ "$(nvram get wan0_state_t)" = "2" ]; then
-                        wanIFaceNum="0"
-                    elif [ "$(nvram get wan1_state_t)" = "2" ]; then
-                        wanIFaceNum="1"
-                    else
-                        wanIFaceNum="0"
-                    fi
+                    for iFaceNum in 0 1
+                    do
+                        if [ "$(nvram get "wan${iFaceNum}_primary")" = "1" ] && \
+                           [ "$(nvram get "wan${iFaceNum}_state_t")" = "2" ]
+                        then
+                            wanIFaceNum="$iFaceNum"
+                            break
+                        fi
+                    done
                 fi
                 # In non-LB, clear the other WAN's file to avoid stale reads
                 otherIF=$([ "$wanIFaceNum" = "0" ] && echo 1 || echo 0)

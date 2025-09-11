@@ -3399,7 +3399,8 @@ case "$1" in
             wanIFaceFile="/tmp/wan${wanIFaceNum}_uptime.tmp"
             timeSecs="$(date +%s)"
 
-            if [ "$(nvram get "wan${wanIFaceNum}_state_t")" = "2" ]; then
+            if [ "$(nvram get "wan${wanIFaceNum}_state_t")" = "2" ]
+            then
                 echo "$wanIFaceNum $timeSecs" > "$wanIFaceFile"
             else
                 rm -f "$wanIFaceFile"

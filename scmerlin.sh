@@ -1936,8 +1936,7 @@ _Init_WAN_Uptime_File_()
     then
         for ifaceNum in 0 1
         do
-            if [ "$(nvram get "wan${iFaceNum}_primary")" = "1" ] && \
-            [ "$(nvram get "wan${iFaceNum}_state_t")" = "2" ]
+            if [ "$(nvram get "wan${ifaceNum}_state_t")" = "2" ]
             then
                 wanIFaceNum="" ; timeSecs=""
                 wanIFaceFile="/tmp/wan${ifaceNum}_uptime.tmp"
@@ -2034,8 +2033,7 @@ Get_WAN_Uptime()
         local printed=0
         for ifaceNum in 0 1
         do
-            [ "$(nvram get "wan${iFaceNum}_primary")" = "1" ] && \
-            [ "$(nvram get "wan${iFaceNum}_state_t")" = "2" ] || continue
+            [ "$(nvram get "wan${ifaceNum}_state_t")" = "2" ] || continue
 
             # Try nvram offset first #
             start_off="$(nvram get "wan${ifaceNum}_uptime" 2>/dev/null | \

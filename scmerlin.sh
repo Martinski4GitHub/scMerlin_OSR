@@ -3372,12 +3372,10 @@ case "$1" in
 		exit 0
 	;;
     wan_event)
-        wansMode="$(nvram get wans_mode 2>/dev/null)"
-
         if [ "$3" = "connected" ]
         then
             NTP_Ready noLockCheck   # Make sure clock is synced #
-
+            wansMode="$(nvram get wans_mode 2>/dev/null)"
             if [ "$wansMode" = "lb" ]; then
                 # In load-balance, trust the event's iface ($2) and don't touch the other file
                 wanIFaceNum="$2"    # 0 or 1

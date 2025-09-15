@@ -2001,6 +2001,8 @@ Get_WAN_Uptime()
         fi
     }
 
+    wansMode="$(nvram get wans_mode 2>/dev/null)"
+
     # Abort if both WANs are down
     if [ "$wansMode" = "lb" ]
     then
@@ -2034,8 +2036,6 @@ Get_WAN_Uptime()
         printf "${REDct}Unable to determine system uptime${CLRct}\n"
         return 1
     fi
-
-    wansMode="$(nvram get wans_mode 2>/dev/null)"
 
     # Load-balance: print each connected WAN #
     if [ "$wansMode" = "lb" ]

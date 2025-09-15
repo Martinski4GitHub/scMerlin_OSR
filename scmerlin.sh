@@ -3053,8 +3053,6 @@ Menu_Uninstall()
 WAN_IsConnected()
 {
     local retCode=1
-    local wansMode="$(nvram get wans_mode 2>/dev/null)"
-
     for iFaceNum in 0 1
     do
         if [ "$(nvram get "wan${iFaceNum}_primary")" = "1" ] && \

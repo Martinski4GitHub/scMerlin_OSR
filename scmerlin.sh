@@ -3376,10 +3376,12 @@ case "$1" in
             NTP_Ready noLockCheck   # Make sure clock is synced #
             wansMode="$(nvram get wans_mode 2>/dev/null)"
             if [ "$wansMode" = "lb" ]; then
-                # In load-balance, trust the event's iface ($2) and don't touch the other file
+                # In load-balance, trust the event's iface ($2) #
+                 # But and don't touch the other file #
                 wanIFaceNum="$2"    # 0 or 1
             else
-                # Failover/primary mode: pick active by primary flags (fallback to connected state)
+                # Don't trust the WAN Events in Failover/primary mode #
+                # Pick active by primary flags (fallback to connected state) #
                 primary0="$(nvram get wan0_primary)"
                 primary1="$(nvram get wan1_primary)"
                 if [ "$primary0" = "1" ] && [ "$primary1" != "1" ]
@@ -3411,7 +3413,7 @@ case "$1" in
                 read -r ifaceNum timeSecs seedTag < "$wanIFaceFile"
             fi
 
-            if [ "$(nvram get "wan${wanIFaceNum}_state_t")" = "2" ]
+            if [ "$(nvram get "wan${wanIFaceNum}_auxstate_t")" = "0" ]
             then
                 echo "$wanIFaceNum $timeSecs" > "$wanIFaceFile"
             else
@@ -3419,7 +3421,8 @@ case "$1" in
             fi
         elif [ "$3" = "disconnected" ] || [ "$3" = "stopping" ] || [ "$3" = "stopped" ] || [ "$3" = "disabled" ]
         then
-            # Disconnected/other events: clean up only the iface that raised the event (safe in both modes)
+            # Disconnected/other events: #
+            # Clean up only the iface that raised the event (safe in all modes) #
             if [ -n "$2" ] 
             then
                 rm -f "/tmp/wan${2}_uptime.tmp"

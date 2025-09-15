@@ -2043,7 +2043,7 @@ Get_WAN_Uptime()
         local printed=0
         for ifaceNum in 0 1
         do
-            [ "$(nvram get "wan${ifaceNum}_state_t")" = "2" ] || continue
+            [ "$(nvram get "wan${ifaceNum}_auxstate_t")" = "0" ] || continue
 
             # Try nvram offset first #
             start_off="$(nvram get "wan${ifaceNum}_uptime" 2>/dev/null | \
@@ -3407,7 +3407,11 @@ case "$1" in
             fi
 
             wanIFaceFile="/tmp/wan${wanIFaceNum}_uptime.tmp"
-            timeSecs="$(date +%s)"
+            if [ ! -s "$wanIFaceFile" ]; then
+                timeSecs="$(date +%s)"
+            else
+                read -r ifaceNum timeSecs seedTag < "$wanIFaceFile"
+            fi
 
             if [ "$(nvram get "wan${wanIFaceNum}_state_t")" = "2" ]
             then

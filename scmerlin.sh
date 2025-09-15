@@ -1936,7 +1936,7 @@ _Init_WAN_Uptime_File_()
     then
         for ifaceNum in 0 1
         do
-            if [ "$(nvram get "wan${ifaceNum}_state_t")" = "2" ]
+            if [ "$(nvram get "wan${ifaceNum}_auxstate_t")" = "0" ]
             then
                 wanIFaceNum="" ; timeSecs=""
                 wanIFaceFile="/tmp/wan${ifaceNum}_uptime.tmp"
@@ -2001,12 +2001,22 @@ Get_WAN_Uptime()
         fi
     }
 
-    # Abort if both WANs are down #
-    if [ "$(nvram get wan0_state_t)" != "2" ] && \
-       [ "$(nvram get wan1_state_t)" != "2" ]
+    # Abort if both WANs are down
+    if [ "$wansMode" = "lb" ]
     then
-        printf "${REDct}WAN is down${CLRct}\n"
-        return 1
+        if [ "$(nvram get wan0_auxstate_t)" != "0" ] && \
+           [ "$(nvram get wan1_auxstate_t)" != "0" ]
+        then
+            printf "${REDct}WAN is down${CLRct}\n"
+            return 1
+        fi
+    else
+        if [ "$(nvram get wan0_state_t)" != "2" ] && \
+           [ "$(nvram get wan1_state_t)" != "2" ]
+        then
+            printf "${REDct}WAN is down${CLRct}\n"
+            return 1
+        fi
     fi
 
     # the monotonic counter from /proc/uptime (strip decimal) #

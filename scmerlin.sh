@@ -1936,7 +1936,7 @@ _Init_WAN_Uptime_File_()
     then
         for ifaceNum in 0 1
         do
-            if [ "$(nvram get "wan${ifaceNum}_auxstate_t")" = "0" ]
+            if [ "$(nvram get "wan${ifaceNum}_state_t")" = "2" ]
             then
                 wanIFaceNum="" ; timeSecs=""
                 wanIFaceFile="/tmp/wan${ifaceNum}_uptime.tmp"
@@ -1986,11 +1986,12 @@ _Init_WAN_Uptime_File_()
 ##----------------------------------------##
 Get_WAN_Uptime()
 {
-    _Init_WAN_Uptime_File_
 
     local ifaceNum  upsecs  days  hours  minutes  wansMode
     local wanup_secs  now_secs  seedTag  approx_flag
     local active_IFaceWAN=""  wanIFaceNum  wanIFaceFile
+    local sys_uptime  start_off
+    local link0 link1 aux0 aux1 link
 
     _IsNumericStr_()
     {
@@ -2003,11 +2004,18 @@ Get_WAN_Uptime()
 
     wansMode="$(nvram get wans_mode 2>/dev/null)"
 
-    # Abort if both WANs are down
+    # Snapshot physical link + auxstate for both ifaces (LB uses these)
+    link0="$(nvram get link_wan)"
+    link1="$(nvram get link_wan1)"
+    aux0="$(nvram get wan0_auxstate_t)"
+    aux1="$(nvram get wan1_auxstate_t)"
+
+    # Abort if both WANs are down #
     if [ "$wansMode" = "lb" ]
     then
-        if [ "$(nvram get wan0_auxstate_t)" != "0" ] && \
-           [ "$(nvram get wan1_auxstate_t)" != "0" ]
+        # Consider WAN usable only if (link==1 && aux==0) #
+        if ! { [ "$link0" = "1" ] && [ "$aux0" = "0" ]; } && \
+           ! { [ "$link1" = "1" ] && [ "$aux1" = "0" ]; }
         then
             printf "${REDct}WAN is down${CLRct}\n"
             return 1
@@ -2037,12 +2045,16 @@ Get_WAN_Uptime()
         return 1
     fi
 
-    # Load-balance: print each connected WAN #
+    # Load-balance: print each connected/usable WAN (link==1 && aux==0) #
     if [ "$wansMode" = "lb" ]
     then
         local printed=0
         for ifaceNum in 0 1
         do
+            if [ "$ifaceNum" = "0" ]; then link="$link0"
+            else link="$link1"; fi
+
+            [ "$link" = "1" ] && \
             [ "$(nvram get "wan${ifaceNum}_auxstate_t")" = "0" ] || continue
 
             # Try nvram offset first #
@@ -2073,7 +2085,7 @@ Get_WAN_Uptime()
                     then
                         upsecs="$(( now_secs - wanup_secs ))"
                         [ "$seedTag" = "SEED" ] && \
-                        approx_flag=" (initial-seed)"
+                        approx_flag=" (initial-seed)" || approx_flag=""
                     fi
                 fi
             fi
@@ -2868,6 +2880,7 @@ Menu_Install()
 	Auto_Startup create 2>/dev/null
 	Auto_ServiceEvent create 2>/dev/null
 	_InstallWanEventHook_ create 2>/dev/null
+	_Init_WAN_Uptime_File_
 
 	Update_File scmerlin_www.asp
 	Update_File sitemap.asp
@@ -2908,6 +2921,18 @@ Menu_Startup()
 	Shortcut_Script create
 	Auto_ServiceEvent create 2>/dev/null
 	_InstallWanEventHook_ create 2>/dev/null
+    # the monotonic counter from /proc/uptime (strip decimal) #
+    sys_uptime="$(cut -d'.' -f1 /proc/uptime 2>/dev/null)"
+
+    # Fall back to the NVRAM snapshot if /proc/uptime was empty/unreadable #
+    if [ -z "$sys_uptime" ]
+    then
+        sys_uptime="$(nvram get sys_uptime_now 2>/dev/null | tr -d '[:space:]')"
+    fi
+    if [ "$sys_uptime" -lt 300 ]
+    then
+        _Init_WAN_Uptime_File_
+    fi
 
 	"$SCRIPT_DIR/S99tailtop" start >/dev/null 2>&1
 
@@ -3377,7 +3402,7 @@ case "$1" in
             wansMode="$(nvram get wans_mode 2>/dev/null)"
             if [ "$wansMode" = "lb" ]; then
                 # In load-balance, trust the event's iface ($2) #
-                 # But and don't touch the other file #
+                # don't touch the other file #
                 wanIFaceNum="$2"    # 0 or 1
             else
                 # Don't trust the WAN Events in Failover/primary mode #
@@ -3391,12 +3416,12 @@ case "$1" in
                 then
                     wanIFaceNum="1"
                 else
-                    for iFaceNum in 0 1
+                    for ifaceNum in 0 1
                     do
-                        if [ "$(nvram get "wan${iFaceNum}_primary")" = "1" ] && \
-                           [ "$(nvram get "wan${iFaceNum}_state_t")" = "2" ]
+                        if [ "$(nvram get "wan${ifaceNum}_primary")" = "1" ] && \
+                           [ "$(nvram get "wan${ifaceNum}_state_t")" = "2" ]
                         then
-                            wanIFaceNum="$iFaceNum"
+                            wanIFaceNum="$ifaceNum"
                             break
                         fi
                     done
@@ -3410,10 +3435,11 @@ case "$1" in
             if [ ! -s "$wanIFaceFile" ]; then
                 timeSecs="$(date +%s)"
             else
-                read -r ifaceNum timeSecs seedTag < "$wanIFaceFile"
+                read -r wanIFaceNum timeSecs < "$wanIFaceFile"
             fi
 
-            if [ "$(nvram get "wan${wanIFaceNum}_auxstate_t")" = "0" ]
+            # Write only when iface is truly usable in this context
+            if [ "$(nvram get "wan${wanIFaceNum}_state_t")" = "2" ]
             then
                 echo "$wanIFaceNum $timeSecs" > "$wanIFaceFile"
             else

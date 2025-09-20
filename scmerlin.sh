@@ -3396,9 +3396,26 @@ case "$1" in
 		exit 0
 	;;
     wan_event)
-        if [ "$3" = "connected" ]
+        if [ "$3" = "connected" ] || [ "$3" = "connecting" ] || [ "$3" = "init" ]
         then
             NTP_Ready noLockCheck   # Make sure clock is synced #
+
+            _InterfaceUP_() {
+                ifaceNum="$1"
+                ifname="$(nvram get "wan${ifaceNum}_ifname" 2>/dev/null)"
+                stateT="$(nvram get "wan${ifaceNum}_state_t" 2>/dev/null)"
+
+                carrier=""
+                if [ -n "$ifname" ] && [ -r "/sys/class/net/$ifname/carrier" ]
+                then
+                    carrier="$(cat "/sys/class/net/$ifname/carrier" 2>/dev/null)"
+                fi
+
+                # True if WAN reports connected AND (carrier=1 or carrier unknown)
+                [ "$stateT" = "2" ] && { [ "$carrier" = "1" ] || [ -z "$carrier" ]; }
+            }
+
+
             wansMode="$(nvram get wans_mode 2>/dev/null)"
             if [ "$wansMode" = "lb" ]; then
                 # In load-balance, trust the event's iface ($2) #
@@ -3409,22 +3426,25 @@ case "$1" in
                 # Pick active by primary flags (fallback to connected state) #
                 primary0="$(nvram get wan0_primary)"
                 primary1="$(nvram get wan1_primary)"
-                if [ "$primary0" = "1" ] && [ "$primary1" != "1" ]
+
+                if [ "$primary0" = "1" ] && _InterfaceUP_ 0
                 then
                     wanIFaceNum="0"
-                elif [ "$primary1" = "1" ] && [ "$primary0" != "1" ]
+                elif [ "$primary1" = "1" ] && _InterfaceUP_ 1
                 then
                     wanIFaceNum="1"
                 else
-                    for ifaceNum in 0 1
-                    do
-                        if [ "$(nvram get "wan${ifaceNum}_primary")" = "1" ] && \
-                           [ "$(nvram get "wan${ifaceNum}_state_t")" = "2" ]
-                        then
-                            wanIFaceNum="$ifaceNum"
-                            break
-                        fi
-                    done
+                    # Prefer the event's iface if it is actually up
+                    if [ -n "$2" ] && _InterfaceUP_ "$2"
+                    then
+                        wanIFaceNum="$2"
+                    elif _InterfaceUP_ 0
+                    then
+                        wanIFaceNum="0"
+                    elif _InterfaceUP_ 1
+                    then
+                        wanIFaceNum="1"
+                    fi
                 fi
                 # In non-LB, clear the other WAN's file to avoid stale reads
                 otherIF=$([ "$wanIFaceNum" = "0" ] && echo 1 || echo 0)
@@ -3432,20 +3452,22 @@ case "$1" in
             fi
 
             wanIFaceFile="/tmp/wan${wanIFaceNum}_uptime.tmp"
-            if [ ! -s "$wanIFaceFile" ]; then
+            if [ ! -s "$wanIFaceFile" ]
+            then
                 timeSecs="$(date +%s)"
             else
                 read -r wanIFaceNum timeSecs < "$wanIFaceFile"
             fi
 
             # Write only when iface is truly usable in this context
-            if [ "$(nvram get "wan${wanIFaceNum}_state_t")" = "2" ]
+            if [ -n "$wanIFaceNum" ]
             then
                 echo "$wanIFaceNum $timeSecs" > "$wanIFaceFile"
             else
-                rm -f "$wanIFaceFile"
+                # Neither WAN is usable; clear both
+                rm -f /tmp/wan0_uptime.tmp /tmp/wan1_uptime.tmp
             fi
-        elif [ "$3" = "disconnected" ] || [ "$3" = "stopping" ] || [ "$3" = "stopped" ] || [ "$3" = "disabled" ]
+        elif [ "$3" = "disconnected" ] || [ "$3" = "stopped" ] || [ "$3" = "disabled" ]
         then
             # Disconnected/other events: #
             # Clean up only the iface that raised the event (safe in all modes) #

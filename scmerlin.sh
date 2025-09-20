@@ -3416,13 +3416,15 @@ case "$1" in
                 then
                     wanIFaceNum="1"
                 else
-                    if [ "$(nvram get wan0_state_t)" = "2" ]; then
-                        wanIFaceNum="0"
-                    elif [ "$(nvram get wan1_state_t)" = "2" ]; then
-                        wanIFaceNum="1"
-                    else
-                        wanIFaceNum="0"
-                    fi
+                    for ifaceNum in 0 1
+                    do
+                        if [ "$(nvram get "wan${ifaceNum}_primary")" = "1" ] && \
+                           [ "$(nvram get "wan${ifaceNum}_state_t")" = "2" ]
+                        then
+                            wanIFaceNum="$ifaceNum"
+                            break
+                        fi
+                    done
                 fi
                 # In non-LB, clear the other WAN's file to avoid stale reads
                 otherIF=$([ "$wanIFaceNum" = "0" ] && echo 1 || echo 0)
@@ -3430,11 +3432,10 @@ case "$1" in
             fi
 
             wanIFaceFile="/tmp/wan${wanIFaceNum}_uptime.tmp"
-            if [ ! -s "$wanIFaceFile" ]
-            then
+            if [ ! -s "$wanIFaceFile" ]; then
                 timeSecs="$(date +%s)"
             else
-                read -r wanIFaceNum timeSecs seedTag < "$wanIFaceFile"
+                read -r wanIFaceNum timeSecs < "$wanIFaceFile"
             fi
 
             # Write only when iface is truly usable in this context

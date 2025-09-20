@@ -3432,10 +3432,11 @@ case "$1" in
             fi
 
             wanIFaceFile="/tmp/wan${wanIFaceNum}_uptime.tmp"
-            if [ ! -s "$wanIFaceFile" ]; then
+            if [ ! -s "$wanIFaceFile" ]
+            then
                 timeSecs="$(date +%s)"
             else
-                read -r wanIFaceNum timeSecs < "$wanIFaceFile"
+                read -r ifaceNum timeSecs seedTag < "$wanIFaceFile"
             fi
 
             # Write only when iface is truly usable in this context

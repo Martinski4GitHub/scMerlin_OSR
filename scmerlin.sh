@@ -12,7 +12,7 @@
 ## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2025-Sep-27
+# Last Modified: 2025-Sep-07
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -30,7 +30,7 @@ readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
 readonly SCM_VERSION="v2.5.42"
 readonly SCRIPT_VERSION="v2.5.42"
-readonly SCRIPT_VERSTAG="25092701"
+readonly SCRIPT_VERSTAG="25090523"
 SCRIPT_BRANCH="develop"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -2018,7 +2018,6 @@ Get_WAN_Uptime()
            ! { [ "$link1" = "1" ] && [ "$aux1" = "0" ]; }
         then
             printf "${REDct}WAN is down${CLRct}\n"
-            rm -f /tmp/wan0_uptime.tmp /tmp/wan1_uptime.tmp
             return 1
         fi
     else
@@ -2026,7 +2025,6 @@ Get_WAN_Uptime()
            [ "$(nvram get wan1_state_t)" != "2" ]
         then
             printf "${REDct}WAN is down${CLRct}\n"
-            rm -f /tmp/wan0_uptime.tmp /tmp/wan1_uptime.tmp
             return 1
         fi
     fi
@@ -2050,15 +2048,6 @@ Get_WAN_Uptime()
     # Load-balance: print each connected/usable WAN (link==1 && aux==0) #
     if [ "$wansMode" = "lb" ]
     then
-
-        # One-sided cleanup: if an iface is unusable, drop its temp file
-        if ! { [ "$link0" = "1" ] && [ "$aux0" = "0" ]; }; then
-            rm -f /tmp/wan0_uptime.tmp
-        fi
-        if ! { [ "$link1" = "1" ] && [ "$aux1" = "0" ]; }; then
-            rm -f /tmp/wan1_uptime.tmp
-        fi
-
         local printed=0
         for ifaceNum in 0 1
         do
@@ -3425,6 +3414,7 @@ case "$1" in
                 # True if WAN reports connected AND (carrier=1 or carrier unknown)
                 [ "$stateT" = "2" ] && { [ "$carrier" = "1" ] || [ -z "$carrier" ]; }
             }
+
 
             wansMode="$(nvram get wans_mode 2>/dev/null)"
             if [ "$wansMode" = "lb" ]; then

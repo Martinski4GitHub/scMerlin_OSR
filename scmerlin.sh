@@ -12,7 +12,7 @@
 ## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2025-Sep-27
+# Last Modified: 2025-Oct-10
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -22,15 +22,19 @@
 # shellcheck disable=SC2059
 # shellcheck disable=SC2034
 # shellcheck disable=SC2155
+# shellcheck disable=SC3018
+# shellcheck disable=SC3037
+# shellcheck disable=SC3039
 # shellcheck disable=SC3043
+# shellcheck disable=SC3045
 ######################################################
 
 ### Start of script variables ###
 readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
-readonly SCM_VERSION="v2.5.42"
-readonly SCRIPT_VERSION="v2.5.42"
-readonly SCRIPT_VERSTAG="25092702"
+readonly SCM_VERSION="v2.5.43"
+readonly SCRIPT_VERSION="v2.5.43"
+readonly SCRIPT_VERSTAG="25101023"
 SCRIPT_BRANCH="develop"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -91,8 +95,9 @@ readonly webPageSiteMpRegExp="${webPageLineTabExp}\"Sitemap\"\},"
 readonly webPageScriptRegExp="${webPageLineTabExp}\"$SCRIPT_NAME\"\},"
 readonly BEGIN_MenuAddOnsTag="/\*\*BEGIN:_AddOns_\*\*/"
 readonly ENDIN_MenuAddOnsTag="/\*\*ENDIN:_AddOns_\*\*/"
-readonly branchx_TAG="Branch: $SCRIPT_BRANCH"
-readonly version_TAG="${SCRIPT_VERSION}_${SCRIPT_VERSTAG}"
+readonly branchxStr_TAG="[Branch: $SCRIPT_BRANCH]"
+readonly versionDev_TAG="${SCRIPT_VERSION}_${SCRIPT_VERSTAG}"
+readonly versionMod_TAG="$SCRIPT_VERSION on $ROUTER_MODEL"
 
 ##-------------------------------------##
 ## Added by Martinski W. [2025-May-17] ##
@@ -100,6 +105,12 @@ readonly version_TAG="${SCRIPT_VERSION}_${SCRIPT_VERSTAG}"
 readonly fwInstalledBaseVers="$(nvram get firmver | sed 's/\.//g')"
 readonly fwInstalledBuildVers="$(nvram get buildno)"
 readonly fwInstalledBranchVer="${fwInstalledBaseVers}.$(echo "$fwInstalledBuildVers" | awk -F'.' '{print $1}')"
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Oct-10] ##
+##-------------------------------------##
+readonly IPv4octet_RegEx="([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])"
+readonly IPv4addrs_RegEx="${IPv4octet_RegEx}([.]$IPv4octet_RegEx){3}"
 
 ### End of output format variables ###
 
@@ -116,6 +127,7 @@ Band_5G_1_Support=false
 Band_5G_2_Support=false
 Band_6G_1_Support=false
 Band_6G_2_Support=false
+WireGuard_Support=false
 
 if echo "$SUPPORTstr" | grep -qo '2.4G '
 then Band_24G_Support=true ; fi
@@ -125,6 +137,9 @@ then Band_5G_1_Support=true ; fi
 
 if echo "$SUPPORTstr" | grep -qw 'wifi6e'
 then Band_6G_1_Support=true ; fi
+
+if echo "$SUPPORTstr" | grep -qwo "wireguard"
+then WireGuard_Support=true ; fi
 
 ##-------------------------------------##
 ## Added by Martinski W. [2025-Feb-15] ##
@@ -374,7 +389,8 @@ Check_Lock()
 	fi
 }
 
-Clear_Lock(){
+Clear_Lock()
+{
 	rm -f "/tmp/$SCRIPT_NAME_LOWER.lock" 2>/dev/null
 	return 0
 }
@@ -419,6 +435,292 @@ Set_Version_Custom_Settings()
 			fi
 		;;
 	esac
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Oct-10] ##
+##-------------------------------------##
+_CheckFor_WireGuard_Clients_Available_()
+{
+   local retCode=1
+   local nvramTempFile="/tmp/${SCRIPT_NAME}_nvramShow_$$.txt"
+
+   if ! "$WireGuard_Support"
+   then return 1  #WireGuard NOT supported#
+   fi
+
+   nvram show 2>/dev/null | grep -E "^wgc[1-5]_.+" > "$nvramTempFile"
+   if [ ! -s "$nvramTempFile" ]
+   then
+       rm -f "$nvramTempFile"
+       return 1  #WireGuard Clients NOT found#
+   fi
+
+   if grep -qE "^wgc[1-5]_enable=[1-2]$" "$nvramTempFile" || \
+      { grep -qE "^wgc[1-5]_ppub=.+$" "$nvramTempFile" && \
+        grep -qE "^wgc[1-5]_priv=.+$" "$nvramTempFile" && \
+        grep -qE "^wgc[1-5]_addr=${IPv4addrs_RegEx}" "$nvramTempFile"  && \
+        grep -qE "^wgc[1-5]_ep_port=[1-9][0-9]{2,4}$" "$nvramTempFile" && \
+        grep -qE "^wgc[1-5]_ep_addr=${IPv4addrs_RegEx}" "$nvramTempFile"
+      }
+   then retCode=0
+   fi
+
+   rm -f "$nvramTempFile"
+   return "$retCode"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Oct-10] ##
+##-------------------------------------##
+_IsWireGuard_Client_Configured_()
+{
+   if ! "$WireGuard_Support"     || \
+      [ $# -eq 0 ] || [ -z "$1" ] || \
+      ! echo "$1" | grep -qE "^[1-5]$"
+   then return 1
+   fi
+
+   local retCode=1
+   local nvramTempFile="/tmp/${SCRIPT_NAME}_nvramShow_$$.txt"
+
+   nvram show 2>/dev/null | grep -E "^wgc${1}_.+" > "$nvramTempFile"
+   if [ ! -s "$nvramTempFile" ]
+   then
+       rm -f "$nvramTempFile"
+       return 1  #WireGuard Client NOT found#
+   fi
+
+   if grep -qE "^wgc${1}_enable=[1-2]$" "$nvramTempFile" || \
+      { grep -qE "^wgc${1}_ppub=.+$" "$nvramTempFile" && \
+        grep -qE "^wgc${1}_priv=.+$" "$nvramTempFile" && \
+        grep -qE "^wgc${1}_addr=${IPv4addrs_RegEx}" "$nvramTempFile"  && \
+        grep -qE "^wgc${1}_ep_port=[1-9][0-9]{2,4}$" "$nvramTempFile" && \
+        grep -qE "^wgc${1}_ep_addr=${IPv4addrs_RegEx}" "$nvramTempFile"
+      }
+   then retCode=0
+   fi
+
+   rm -f "$nvramTempFile"
+   return "$retCode"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Oct-10] ##
+##-------------------------------------##
+_Restart_WireGuard_Client_()
+{
+   if ! "$WireGuard_Support"     || \
+      [ $# -eq 0 ] || [ -z "$1" ] || \
+      ! echo "$1" | grep -qE "^[1-5]$"
+   then return 1
+   fi
+
+   if [ "$(nvram get "wgc${1}_enable")" != "1" ]
+   then
+       nvram set wgc${1}_enable=1 ; nvram commit
+   fi
+   service "restart_wgc $1" >/dev/null 2>&1
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Oct-10] ##
+##-------------------------------------##
+_CheckFor_WireGuard_Servers_Available_()
+{
+   local retCode=1
+   local nvramTempFile="/tmp/${SCRIPT_NAME}_nvramShow_$$.txt"
+
+   if ! "$WireGuard_Support"
+   then return 1  #WireGuard NOT supported#
+   fi
+
+   nvram show 2>/dev/null | grep -E "^wgs[1-2]_.+" > "$nvramTempFile"
+   if [ ! -s "$nvramTempFile" ]
+   then
+       rm -f "$nvramTempFile"
+       return 1  #WireGuard Servers NOT found#
+   fi
+
+   if grep -qE "^wgs[1-2]_enable=[1-2]$" "$nvramTempFile" || \
+      { grep -qE "^wgs[1-2]_pub=.+$" "$nvramTempFile"  && \
+        grep -qE "^wgs[1-2]_priv=.+$" "$nvramTempFile" && \
+        grep -qE "^wgs[1-2]_port=[1-9][0-9]{2,4}$" "$nvramTempFile" && \
+        grep -qE "^wgs[1-2]_addr=${IPv4addrs_RegEx}" "$nvramTempFile"
+      }
+   then retCode=0
+   fi
+
+   rm -f "$nvramTempFile"
+   return "$retCode"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Oct-10] ##
+##-------------------------------------##
+_IsWireGuard_Server_Configured_()
+{
+   if ! "$WireGuard_Support"     || \
+      [ $# -eq 0 ] || [ -z "$1" ] || \
+      ! echo "$1" | grep -qE "^[1-2]$"
+   then return 1
+   fi
+
+   local retCode=1
+   local nvramTempFile="/tmp/${SCRIPT_NAME}_nvramShow_$$.txt"
+
+   nvram show 2>/dev/null | grep -E "^wgs${1}_.+" > "$nvramTempFile"
+   if [ ! -s "$nvramTempFile" ]
+   then
+       rm -f "$nvramTempFile"
+       return 1  #WireGuard Server NOT found#
+   fi
+
+   if grep -qE "^wgs${1}_enable=[1-2]$" "$nvramTempFile" || \
+      { grep -qE "^wgs${1}_pub=.+$" "$nvramTempFile"  && \
+        grep -qE "^wgs${1}_priv=.+$" "$nvramTempFile" && \
+        grep -qE "^wgs${1}_port=[1-9][0-9]{2,4}$" "$nvramTempFile" && \
+        grep -qE "^wgs${1}_addr=${IPv4addrs_RegEx}" "$nvramTempFile"
+      }
+   then retCode=0
+   fi
+
+   rm -f "$nvramTempFile"
+   return "$retCode"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Oct-10] ##
+##-------------------------------------##
+_Restart_WireGuard_Server_()
+{
+   if ! "$WireGuard_Support"     || \
+      [ $# -eq 0 ] || [ -z "$1" ] || \
+      ! echo "$1" | grep -qE "^[1-2]$"
+   then return 1
+   fi
+
+   if [ "$(nvram get "wgs${1}_enable")" != "1" ]
+   then
+       nvram set wgs${1}_enable=1 ; nvram commit
+   fi
+   service "restart_wgs $1" >/dev/null 2>&1
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Oct-10] ##
+##-------------------------------------##
+_CheckFor_OpenVPN_Clients_Available_()
+{
+   local retCode=1
+   local nvramTempFile="/tmp/${SCRIPT_NAME}_nvramShow_$$.txt"
+
+   nvram show 2>/dev/null | grep -E "^vpn_client[1-5]_.+" > "$nvramTempFile"
+   if [ ! -s "$nvramTempFile" ]
+   then
+       rm -f "$nvramTempFile"
+       return 1  #OpenVPN Clients NOT found#
+   fi
+
+   if grep -qE "^vpn_client[1-5]_state=[1-3]$" "$nvramTempFile" || \
+      { grep -qE "^vpn_client[1-5]_username=.+$" "$nvramTempFile" && \
+        grep -qE "^vpn_client[1-5]_password=.+$" "$nvramTempFile" && \
+        grep -qE "^vpn_client[1-5]_port=[1-9][0-9]{2,4}$" "$nvramTempFile" && \
+        grep -qE "^vpn_client[1-5]_addr=${IPv4addrs_RegEx}$" "$nvramTempFile"
+      }
+   then retCode=0
+   fi
+
+   rm -f "$nvramTempFile"
+   return "$retCode"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Oct-10] ##
+##-------------------------------------##
+_IsOpenVPN_Client_Configured_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] || \
+      ! echo "$1" | grep -qE "^[1-5]$"
+   then return 1
+   fi
+
+   local retCode=1
+   local nvramTempFile="/tmp/${SCRIPT_NAME}_nvramShow_$$.txt"
+
+   nvram show 2>/dev/null | grep -E "^vpn_client${1}_.+" > "$nvramTempFile"
+   if [ ! -s "$nvramTempFile" ]
+   then
+       rm -f "$nvramTempFile"
+       return 1  #OpenVPN Client NOT found#
+   fi
+
+   if grep -qE "^vpn_client${1}_state=[1-3]$" "$nvramTempFile" || \
+      { grep -qE "^vpn_client${1}_username=.+$" "$nvramTempFile" && \
+        grep -qE "^vpn_client${1}_password=.+$" "$nvramTempFile" && \
+        grep -qE "^vpn_client${1}_port=[1-9][0-9]{2,4}$" "$nvramTempFile" && \
+        grep -qE "^vpn_client${1}_addr=${IPv4addrs_RegEx}$" "$nvramTempFile"
+      }
+   then retCode=0
+   fi
+
+   rm -f "$nvramTempFile"
+   return "$retCode"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Oct-10] ##
+##-------------------------------------##
+_CheckFor_OpenVPN_Servers_Available_()
+{
+   local retCode=1
+   local nvramTempFile="/tmp/${SCRIPT_NAME}_nvramShow_$$.txt"
+   local ovpnSrvrRegEx="^(vpn_server[1-2]_state|vpn_serverx_start)="
+
+   nvram show 2>/dev/null | grep -E "^${ovpnSrvrRegEx}" > "$nvramTempFile"
+   if [ ! -s "$nvramTempFile" ]
+   then
+       rm -f "$nvramTempFile"
+       return 1  #OpenVPN Servers NOT found#
+   fi
+
+   if grep -qE "^vpn_server[1-2]_state=[1-3]$" "$nvramTempFile" || \
+      grep -qE "^vpn_serverx_start=[12],([12][,]?)?" "$nvramTempFile"
+   then retCode=0
+   fi
+
+   rm -f "$nvramTempFile"
+   return "$retCode"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Oct-10] ##
+##-------------------------------------##
+_IsOpenVPN_Server_Configured_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] || \
+      ! echo "$1" | grep -qE "^[1-2]$"
+   then return 1
+   fi
+
+   local retCode=1
+   local nvramTempFile="/tmp/${SCRIPT_NAME}_nvramShow_$$.txt"
+   local ovpnSrvrRegEx="^(vpn_server${1}_state|vpn_serverx_start)="
+
+   nvram show 2>/dev/null | grep -E "^${ovpnSrvrRegEx}" > "$nvramTempFile"
+   if [ ! -s "$nvramTempFile" ]
+   then
+       rm -f "$nvramTempFile"
+       return 1  #OpenVPN Server NOT found#
+   fi
+
+   if grep -qE "^vpn_server${1}_state=[1-3]$" "$nvramTempFile" || \
+      grep -qE "^vpn_serverx_start=([12][,])?${1}[,]?" "$nvramTempFile"
+   then retCode=0
+   fi
+
+   rm -f "$nvramTempFile"
+   return "$retCode"
 }
 
 ##----------------------------------------##
@@ -1855,7 +2157,7 @@ Get_WAN_Uptime_JS()
     [ -z "$wan0Str" ] && wan0Str="WAN is down"
     [ -z "$wan1Str" ] && wan1Str="WAN is down"
 
-    # Safe JS escaping
+    # Safe JS escaping #
     _js_escape() { printf '%s' "$1" | sed -e "s/\\\\/\\\\\\\\/g" -e "s/'/\\\\'/g"; }
 
     {
@@ -1986,7 +2288,6 @@ _Init_WAN_Uptime_File_()
 ##----------------------------------------##
 Get_WAN_Uptime()
 {
-
     local ifaceNum  upsecs  days  hours  minutes  wansMode
     local wanup_secs  now_secs  seedTag  approx_flag
     local active_IFaceWAN=""  wanIFaceNum  wanIFaceFile
@@ -2051,8 +2352,10 @@ Get_WAN_Uptime()
         local printed=0
         for ifaceNum in 0 1
         do
-            if [ "$ifaceNum" = "0" ]; then link="$link0"
-            else link="$link1"; fi
+            if [ "$ifaceNum" = "0" ]
+            then link="$link0"
+            else link="$link1"
+            fi
 
             [ "$link" = "1" ] && \
             [ "$(nvram get "wan${ifaceNum}_auxstate_t")" = "0" ] || continue
@@ -2085,7 +2388,7 @@ Get_WAN_Uptime()
                     then
                         upsecs="$(( now_secs - wanup_secs ))"
                         [ "$seedTag" = "SEED" ] && \
-                        approx_flag=" (initial-seed)" || approx_flag=""
+                        approx_flag=" (initial-seed)"
                     fi
                 fi
             fi
@@ -2197,25 +2500,55 @@ Get_WAN_Uptime()
     fi
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2025-Oct-10] ##
+##-------------------------------------##
+_CenterTextStr_()
+{
+    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ] || \
+       ! echo "$2" | grep -qE "^[1-9][0-9]+$"
+    then echo ; return 1
+    fi
+    local stringLen="${#1}"
+    local space1Len="$((($2 - stringLen)/2))"
+    local space2Len="$space1Len"
+    local totalLen="$((space1Len + stringLen + space2Len))"
+
+    if [ "$totalLen" -lt "$2" ]
+    then space2Len="$((space2Len + 1))"
+    elif [ "$totalLen" -gt "$2" ]
+    then space1Len="$((space1Len - 1))"
+    fi
+    if [ "$space1Len" -gt 0 ] && [ "$space2Len" -gt 0 ]
+    then printf "%*s%s%*s" "$space1Len" '' "$1" "$space2Len" ''
+    else printf "%s" "$1"
+    fi
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2025-Oct-10] ##
+##----------------------------------------##
 ScriptHeader()
 {
 	clear
-	printf "\n"
-	printf "${BOLD}######################################################${CLEARFORMAT}\\n"
-	printf "${BOLD}##               __  __              _  _           ##${CLEARFORMAT}\\n"
-	printf "${BOLD}##              |  \/  |            | |(_)          ##${CLEARFORMAT}\\n"
-	printf "${BOLD}##    ___   ___ | \  / |  ___  _ __ | | _  _ __     ##${CLEARFORMAT}\\n"
-	printf "${BOLD}##   / __| / __|| |\/| | / _ \| '__|| || || '_ \    ##${CLEARFORMAT}\\n"
-	printf "${BOLD}##   \__ \| (__ | |  | ||  __/| |   | || || | | |   ##${CLEARFORMAT}\\n"
-	printf "${BOLD}##   |___/ \___||_|  |_| \___||_|   |_||_||_| |_|   ##${CLEARFORMAT}\\n"
-	printf "${BOLD}##                                                  ##${CLEARFORMAT}\\n"
-	printf "${BOLD}##             %9s on %-18s      ##${CLEARFORMAT}\n" "$SCRIPT_VERSION" "$ROUTER_MODEL"
-	printf "${BOLD}##                                                  ##${CLEARFORMAT}\\n"
-	printf "${BOLD}##       https://github.com/AMTM-OSR/scMerlin       ##${CLEARFORMAT}\\n"
-	printf "${BOLD}## Forked from: https://github.com/jackyaz/scMerlin ##${CLEARFORMAT}\\n"
-	printf "${BOLD}##                                                  ##${CLEARFORMAT}\\n"
-	printf "${BOLD}######################################################${CLEARFORMAT}\\n"
-	printf "\n"
+	local spaceLen=48  colorCT
+	[ "$SCRIPT_BRANCH" = "master" ] && colorCT="$GRNct" || colorCT="$MGNTct"
+	echo
+	printf "${BOLD}######################################################${CLRct}\n"
+	printf "${BOLD}##               __  __              _  _           ##${CLRct}\n"
+	printf "${BOLD}##              |  \/  |            | |(_)          ##${CLRct}\n"
+	printf "${BOLD}##    ___   ___ | \  / |  ___  _ __ | | _  _ __     ##${CLRct}\n"
+	printf "${BOLD}##   / __| / __|| |\/| | / _ \| '__|| || || '_ \    ##${CLRct}\n"
+	printf "${BOLD}##   \__ \| (__ | |  | ||  __/| |   | || || | | |   ##${CLRct}\n"
+	printf "${BOLD}##   |___/ \___||_|  |_| \___||_|   |_||_||_| |_|   ##${CLRct}\n"
+	printf "${BOLD}##                                                  ##${CLRct}\n"
+	printf "${BOLD}## ${GRNct}%s${CLRct}${BOLD} ##${CLRct}\n" "$(_CenterTextStr_ "$versionMod_TAG" "$spaceLen")"
+	printf "${BOLD}## ${colorCT}%s${CLRct}${BOLD} ##${CLRct}\n" "$(_CenterTextStr_ "$branchxStr_TAG" "$spaceLen")"
+	printf "${BOLD}##                                                  ##${CLRct}\n"
+	printf "${BOLD}##       https://github.com/AMTM-OSR/scMerlin       ##${CLRct}\n"
+	printf "${BOLD}## Forked from: https://github.com/jackyaz/scMerlin ##${CLRct}\n"
+	printf "${BOLD}##                                                  ##${CLRct}\n"
+	printf "${BOLD}######################################################${CLRct}\n\n"
 }
 
 ##-------------------------------------##
@@ -2261,97 +2594,151 @@ _NTPMerlin_GetTimeServerIDfromConfig_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jul-30] ##
+## Modified by Martinski W. [2024-Oct-10] ##
 ##----------------------------------------##
 MainMenu()
 {
+	local menuOption
 	local NTP_WATCHDOG_STATUS=""  NTP_READY_CHECK_STATUS=""  TAILTAINT_DNS_STATUS=""
 	isInteractiveMenuMode=true
+
+	_HandleInvalidOption_()
+	{
+		[ -n "$menuOption" ] && \
+		printf "\n${REDct}INVALID input [$menuOption]${CLRct}"
+		printf "\nPlease choose a valid option.\n\n"
+	}
 
 	printf "WebUI for %s is available at:\n${SETTING}%s${CLEARFORMAT}\n\n" "$SCRIPT_NAME" "$(Get_WebUI_URL)"
 
 	##---------- SERVICES ----------##
-	printf "${BOLDUNDERLN}Services${CLEARFORMAT}"
-	printf "${BOLD}${WARN} (selecting an option will restart the service)${CLEARFORMAT}\\n"
-	printf "1.    DNS/DHCP Server (dnsmasq)\\n"
-	printf "2.    Internet connection\\n"
-	printf "3.    Web Interface (httpd)\\n"
-	printf "4.    WiFi\\n"
-	printf "5.    FTP Server (vsftpd)\\n"
-	printf "6.    Samba\\n"
-	printf "7.    DDNS client\\n"
-	printf "8.    Timeserver (ntpd/chronyd)\\n"
+	printf "${BOLDUNDERLN}${GRNct}Services${CLEARFORMAT}"
+	printf "${BOLD}${WARN} (selecting an option will restart the service)${CLEARFORMAT}\n"
+	printf "   1.   DNS/DHCP Server (dnsmasq)\n"
+	printf "   2.   Internet connection\n"
+	printf "   3.   Web Interface (httpd)\n"
+	printf "   4.   WiFi\n"
+	printf "   5.   FTP Server (vsftpd)\n"
+	printf "   6.   Samba\n"
+	printf "   7.   DDNS client\n"
+	printf "   8.   Timeserver (ntpd/chronyd)\n"
 
-	##---------- VPN CLIENTS ----------##
-	vpnclients="$(nvram show 2> /dev/null | grep "^vpn_client._addr")"
-	vpnclientenabled="false"
-	for vpnclient in $vpnclients
-	do
-		if [ -n "$(nvram get "$(echo "$vpnclient" | cut -f1 -d'=')")" ]; then
-			vpnclientenabled="true"
-		fi
-	done
-	if [ "$vpnclientenabled" = "true" ]
+	##---------- OpenVPN CLIENTS ----------##
+	if _CheckFor_OpenVPN_Clients_Available_
 	then
-		printf "\\n${BOLDUNDERLN}VPN Clients${CLEARFORMAT}"
-		printf "${BOLD}${WARN} (selecting an option will restart the VPN Client)${CLEARFORMAT}\\n"
-		vpnclientnum=1
-		while [ "$vpnclientnum" -lt 6 ]
+		printf "\n${BOLDUNDERLN}${GRNct}OpenVPN Clients${CLRct}"
+		printf " ${BOLD}${WARN}(selecting an option will restart the OpenVPN Client)${CLRct}\n"
+		vpnClientNum=1
+		while [ "$vpnClientNum" -lt 6 ]
 		do
-			printf "vc%s.  VPN Client %s (%s)\\n" "$vpnclientnum" "$vpnclientnum" "$(nvram get vpn_client"$vpnclientnum"_desc)"
-			vpnclientnum="$((vpnclientnum + 1))"
-		done
-	fi
-
-	##---------- VPN SERVERS ----------##
-	vpnservercount="$(nvram get vpn_serverx_start | awk '{n=split($0, array, ",")} END{print n-1 }')"
-	vpnserverenabled="false"
-	if [ "$vpnservercount" -gt 0 ]; then
-		vpnserverenabled="true"
-	fi
-	if [ "$vpnserverenabled" = "true" ]
-	then
-		printf "\\n${BOLDUNDERLN}VPN Servers${CLEARFORMAT}"
-		printf "${BOLD}${WARN} (selecting an option will restart the VPN Server)${CLEARFORMAT}\\n"
-		vpnservernum=1
-		while [ "$vpnservernum" -lt 3 ]
-		do
-			vpnsdesc=""
-			if ! nvram get vpn_serverx_start | grep -q "$vpnservernum"; then
-				vpnsdesc="(Not configured)"
+			vpnClientDesc="$(nvram get vpn_client"$vpnClientNum"_desc)"
+			[ -z "$vpnClientDesc" ] && vpnClientDesc="No description"
+			if _IsOpenVPN_Client_Configured_ "$vpnClientNum"
+			then
+				vpnClientDesc="($vpnClientDesc)"
+			else
+				vpnClientDesc="($vpnClientDesc) - ${REDct}[*NOT configured*]${CLRct}"
 			fi
-			printf "vs%s.  VPN Server %s %s\\n" "$vpnservernum" "$vpnservernum" "$vpnsdesc"
-			vpnservernum="$((vpnservernum + 1))"
+			printf " ovc%s.  OpenVPN Client %s ${vpnClientDesc}\n" "$vpnClientNum" "$vpnClientNum"
+			vpnClientNum="$((vpnClientNum + 1))"
 		done
+	else
+		printf "\n${BOLDUNDERLN}${GRNct}OpenVPN Clients${CLRct}"
+		printf " ${BOLD}${REDct}(No OpenVPN Client configuration found)${CLRct}\n"
+	fi
+
+	##---------- OpenVPN SERVERS ----------##
+	if _CheckFor_OpenVPN_Servers_Available_
+	then
+		printf "\n${BOLDUNDERLN}${GRNct}OpenVPN Servers${CLRct}"
+		printf " ${BOLD}${WARN}(selecting an option will restart the OpenVPN Server)${CLRct}\n"
+		vpnServerNum=1
+		while [ "$vpnServerNum" -lt 3 ]
+		do
+			vpnServerDesc=""
+			if ! _IsOpenVPN_Server_Configured_ "$vpnServerNum"
+			then
+				vpnServerDesc="${REDct}[*NOT enabled*]${CLRct}"
+			fi
+			printf " ovs%s.  OpenVPN Server %s ${vpnServerDesc}\n" "$vpnServerNum" "$vpnServerNum"
+			vpnServerNum="$((vpnServerNum + 1))"
+		done
+	else
+		printf "\n${BOLDUNDERLN}${GRNct}OpenVPN Servers${CLRct}"
+		printf " ${BOLD}${REDct}(No OpenVPN Server enabled)${CLRct}\n"
+	fi
+
+	##---------- WireGuard CLIENTS ----------##
+	if _CheckFor_WireGuard_Clients_Available_
+	then
+		printf "\n${BOLDUNDERLN}${GRNct}WireGuard Clients${CLRct}"
+		printf " ${BOLD}${WARN}(selecting an option will restart the WireGuard Client)${CLRct}\n"
+		vpnClientNum=1
+		while [ "$vpnClientNum" -lt 6 ]
+		do
+			vpnClientDesc="$(nvram get wgc"$vpnClientNum"_desc)"
+			[ -z "$vpnClientDesc" ] && vpnClientDesc="No description"
+			if _IsWireGuard_Client_Configured_ "$vpnClientNum"
+			then
+				vpnClientDesc="($vpnClientDesc)"
+			else
+				vpnClientDesc="($vpnClientDesc) - ${REDct}[*NOT configured*]${CLRct}"
+			fi
+			printf " wgc%s.  WireGuard Client %s ${vpnClientDesc}\n" "$vpnClientNum" "$vpnClientNum"
+			vpnClientNum="$((vpnClientNum + 1))"
+		done
+	elif "$WireGuard_Support"
+	then
+		printf "\n${BOLDUNDERLN}${GRNct}WireGuard Clients${CLRct}"
+		printf " ${BOLD}${REDct}(No WireGuard Client configuration found)${CLRct}\n"
+	fi
+
+	##---------- WireGuard SERVERS ----------##
+	if _CheckFor_WireGuard_Servers_Available_
+	then
+		printf "\n${BOLDUNDERLN}${GRNct}WireGuard Server${CLRct}"
+		printf " ${BOLD}${WARN}(selecting an option will restart the WireGuard Server)${CLRct}\n"
+		vpnServerNum=1  ## Currently only ONE WireGuard Server is available ##
+		vpnServerDesc=""
+		if ! _IsWireGuard_Server_Configured_ "$vpnServerNum"
+		then
+			vpnServerDesc="${REDct}[*NOT configured*]${CLRct}"
+		fi
+		printf " wgs%s.  WireGuard Server %s ${vpnServerDesc}\n" "$vpnServerNum" "$vpnServerNum"
+	elif "$WireGuard_Support"
+	then
+		printf "\n${BOLDUNDERLN}${GRNct}WireGuard Server${CLRct}"
+		printf " ${BOLD}${REDct}(No WireGuard Server configuration found)${CLRct}\n"
 	fi
 
 	##---------- ENTWARE ----------##
-	if [ -f /opt/bin/opkg ]
+	if [ -x /opt/bin/opkg ]
 	then
-		printf "\\n${BOLDUNDERLN}Entware${CLEARFORMAT}\\n"
-		printf "et.   Restart all Entware applications\\n"
+		printf "\n${BOLDUNDERLN}${GRNct}Entware${CLEARFORMAT}\n"
+		printf "   et.  Restart all Entware applications\n"
 	fi
 
 	##---------- ROUTER ----------##
-	printf "\n${BOLDUNDERLN}Router${CLEARFORMAT}\n"
-	printf "c.    View running processes\n"
-	printf "m.    View RAM/memory usage\n"
-	printf "jn.   View internal storage usage [JFFS & NVRAM]\n"
-	printf "cr.   View cron jobs\n"
-	printf "wu.   View WAN uptime\n"
-	printf "t.    View router temperatures\n"
-	printf "w.    List Addon WebUI tab to page mapping\n"
-	printf "r.    Reboot router\n\n"
+	printf "\n${BOLDUNDERLN}${GRNct}Router${CLEARFORMAT}\n"
+	printf "    c.  View running processes\n"
+	printf "    m.  View RAM/memory usage\n"
+	printf "   jn.  View internal storage usage [JFFS & NVRAM]\n"
+	printf "   cr.  View cron jobs\n"
+	printf "   wu.  View WAN uptime\n"
+	printf "    t.  View router temperatures\n"
+	printf "    w.  List Addon WebUI tab to page mapping\n"
+	printf "    r.  Reboot router\n"
 
 	##---------- OTHER ----------##
-	printf "${BOLDUNDERLN}Other${CLEARFORMAT}\\n"
+	printf "\n${BOLDUNDERLN}${GRNct}Other${CLEARFORMAT}\n"
 	if [ "$(NTP_BootWatchdog status)" = "ENABLED" ]
 	then
 		NTP_WATCHDOG_STATUS="${GRNct}ENABLED${CLRct}"
 	else
 		NTP_WATCHDOG_STATUS="${REDct}DISABLED${CLRct}"
 	fi
-	printf "ntp.  Toggle NTP boot watchdog script\n      Currently: ${NTP_WATCHDOG_STATUS}\n\n"
+	printf "  ntp.  Toggle NTP boot watchdog script\n"
+	printf "        Currently: ${NTP_WATCHDOG_STATUS}\n\n"
 
 	if [ "$(NTP_ReadyCheckOption status)" = "ENABLED" ]
 	then
@@ -2363,7 +2750,8 @@ MainMenu()
 	then
 		NTP_READY_CHECK_STATUS="${NTP_READY_CHECK_STATUS} [${YLWct}*WARNING*${CLRct}: NTP is ${REDct}NOT${CLRct} synced]"
 	fi
-	printf "nrc.  Toggle NTP Ready startup check\n      Currently: ${NTP_READY_CHECK_STATUS}\n\n"
+	printf "  nrc.  Toggle NTP Ready startup check\n"
+	printf "        Currently: ${NTP_READY_CHECK_STATUS}\n\n"
 
 	if [ "$(TailTaintDNSmasq status)" = "ENABLED" ]
 	then
@@ -2371,19 +2759,21 @@ MainMenu()
 	else
 		TAILTAINT_DNS_STATUS="${REDct}DISABLED${CLRct}"
 	fi
-	printf "dns.  Toggle dnsmasq tainted watchdog script\n      Currently: ${TAILTAINT_DNS_STATUS}\n\n"
-	printf "u.    Check for updates\\n"
-	printf "uf.   Update %s with latest version (force update)\\n\\n" "$SCRIPT_NAME"
-	printf "e.    Exit %s\\n\\n" "$SCRIPT_NAME"
-	printf "z.    Uninstall %s\\n" "$SCRIPT_NAME"
-	printf "\\n"
-	printf "${BOLD}######################################################${CLEARFORMAT}\\n"
-	printf "\\n"
+	printf "  dns.  Toggle dnsmasq tainted watchdog script\n"
+	printf "        Currently: ${TAILTAINT_DNS_STATUS}\n\n"
+	printf "    u.  Check for updates\n"
+	printf "   uf.  Update %s with latest version (force update)\n\n" "$SCRIPT_NAME"
+	printf "    e.  Exit %s\n\n" "$SCRIPT_NAME"
+	printf "    z.  Uninstall %s\n" "$SCRIPT_NAME"
+	printf "\n"
+	printf "${BOLD}######################################################${CLEARFORMAT}\n"
+	printf "\n"
+
 	while true
 	do
 		printf "Choose an option:  "
-		read -r menu
-		case "$menu" in
+		read -r menuOption
+		case "$menuOption" in
 			1)
 				printf "\\n"
 				service restart_dnsmasq >/dev/null 2>&1
@@ -2483,91 +2873,72 @@ MainMenu()
 					printf "\nRestarting Entware 'chronyd' time server...\n"
 					/opt/etc/init.d/S77chronyd restart
 				else
-					printf "\n${BOLD}${ERR}Invalid selection (NTP server NOT enabled/installed)${CLEARFORMAT}\n"
+					printf "\n${BOLD}${ERR}Invalid selection (NTP server is *NOT* enabled/installed)${CLRct}\n"
 				fi
 				echo ; PressEnter
 				break
 			;;
-			vc1)
-				if [ -n "$(nvram get vpn_client1_addr)" ]
+			ovc1|ovc2|ovc3|ovc4|ovc5)
+				vpnNum="$(echo "$menuOption" | sed 's/^ovc//')"
+				if _IsOpenVPN_Client_Configured_ "$vpnNum"
 				then
-					printf "\\n"
-					service restart_vpnclient1 >/dev/null 2>&1
+					printf "\nRestarting OpenVPN Client $vpnNum ...\n"
+					service "restart_vpnclient$vpnNum" >/dev/null 2>&1
+					sleep 2 ; echo
 				else
-					printf "\n${BOLD}${ERR}Invalid selection (VPN Client NOT configured)${CLEARFORMAT}\n\n"
+					printf "\n${BOLD}${ERR}Invalid selection (OpenVPN Client $vpnNum is *NOT* configured)${CLRct}\n\n"
 				fi
 				PressEnter
 				break
 			;;
-			vc2)
-				if [ -n "$(nvram get vpn_client2_addr)" ]
+			ovs1|ovs2)
+				vpnNum="$(echo "$menuOption" | sed 's/^ovs//')"
+				if _IsOpenVPN_Server_Configured_ "$vpnNum"
 				then
-					printf "\\n"
-					service restart_vpnclient2 >/dev/null 2>&1
+					printf "\nRestarting OpenVPN Server $vpnNum ...\n"
+					service "restart_vpnserver$vpnNum" >/dev/null 2>&1
+					sleep 2 ; echo
 				else
-					printf "\n${BOLD}${ERR}Invalid selection (VPN Client NOT configured)${CLEARFORMAT}\n\n"
+					printf "\n${BOLD}${ERR}Invalid selection (OpenVPN Server $vpnNum is *NOT* enabled)${CLRct}\n\n"
 				fi
 				PressEnter
 				break
 			;;
-			vc3)
-				if [ -n "$(nvram get vpn_client3_addr)" ]
+			wgc1|wgc2|wgc3|wgc4|wgc5)
+				vpnNum="$(echo "$menuOption" | sed 's/^wgc//')"
+				if _IsWireGuard_Client_Configured_ "$vpnNum"
 				then
-					printf "\\n"
-					service restart_vpnclient3 >/dev/null 2>&1
+					printf "\nRestarting WireGuard Client $vpnNum ...\n"
+					_Restart_WireGuard_Client_ "$vpnNum"
+					sleep 2 ; echo
+				elif "$WireGuard_Support"
+				then
+					printf "\n${BOLD}${ERR}Invalid selection (WireGuard Client $vpnNum is *NOT* configured)${CLRct}\n\n"
 				else
-					printf "\n${BOLD}${ERR}Invalid selection (VPN Client NOT configured)${CLEARFORMAT}\n\n"
+					_HandleInvalidOption_
 				fi
 				PressEnter
 				break
 			;;
-			vc4)
-				if [ -n "$(nvram get vpn_client4_addr)" ]
+			wgs1)
+				vpnNum=1  ##Only ONE WireGuard Server available##
+				if _IsWireGuard_Server_Configured_ "$vpnNum"
 				then
-					printf "\\n"
-					service restart_vpnclient4 >/dev/null 2>&1
-				else
-					printf "\n${BOLD}${ERR}Invalid selection (VPN Client NOT configured)${CLEARFORMAT}\n\n"
-				fi
-				PressEnter
-				break
-			;;
-			vc5)
-				if [ -n "$(nvram get vpn_client5_addr)" ]
+					printf "\nRestarting WireGuard Server $vpnNum ...\n"
+					_Restart_WireGuard_Server_ "$vpnNum"
+					sleep 2 ; echo
+				elif "$WireGuard_Support"
 				then
-					printf "\\n"
-					service restart_vpnclient5 >/dev/null 2>&1
+					printf "\n${BOLD}${ERR}Invalid selection (WireGuard Server $vpnNum is *NOT* configured)${CLRct}\n\n"
 				else
-					printf "\n${BOLD}${ERR}Invalid selection (VPN Client NOT configured)${CLEARFORMAT}\n\n"
-				fi
-				PressEnter
-				break
-			;;
-			vs1)
-				if nvram get vpn_serverx_start | grep -q '1'
-				then
-					printf "\\n"
-					service restart_vpnserver1 >/dev/null 2>&1
-				else
-					printf "\n${BOLD}${ERR}Invalid selection (VPN Server NOT configured)${CLEARFORMAT}\n\n"
-				fi
-				PressEnter
-				break
-			;;
-			vs2)
-				if nvram get vpn_serverx_start | grep -q '2'
-				then
-					printf "\\n"
-					service restart_vpnserver2 >/dev/null 2>&1
-				else
-					printf "\n${BOLD}${ERR}Invalid selection (VPN Server NOT configured)${CLEARFORMAT}\n\n"
+					_HandleInvalidOption_
 				fi
 				PressEnter
 				break
 			;;
 			et)
-				printf "\\n"
-				if [ -f /opt/bin/opkg ]
+				printf "\n"
+				if [ -x /opt/bin/opkg ]
 				then
 					if Check_Lock menu
 					then
@@ -2781,7 +3152,7 @@ MainMenu()
 				break
 			;;
 			u)
-				printf "\\n"
+				printf "\n"
 				if Check_Lock menu; then
 					Update_Version
 					Clear_Lock
@@ -2790,7 +3161,7 @@ MainMenu()
 				break
 			;;
 			uf)
-				printf "\\n"
+				printf "\n"
 				if Check_Lock menu; then
 					Update_Version force
 					Clear_Lock
@@ -2817,7 +3188,9 @@ MainMenu()
 				esac
 			;;
 			*)
-				printf "\nPlease choose a valid option\n\n"
+				_HandleInvalidOption_
+				PressEnter
+				break
 			;;
 		esac
 	done
@@ -2921,18 +3294,18 @@ Menu_Startup()
 	Shortcut_Script create
 	Auto_ServiceEvent create 2>/dev/null
 	_InstallWanEventHook_ create 2>/dev/null
-    # the monotonic counter from /proc/uptime (strip decimal) #
-    sys_uptime="$(cut -d'.' -f1 /proc/uptime 2>/dev/null)"
+	# the monotonic counter from /proc/uptime (strip decimal) #
+	sys_uptime="$(cut -d'.' -f1 /proc/uptime 2>/dev/null)"
 
-    # Fall back to the NVRAM snapshot if /proc/uptime was empty/unreadable #
-    if [ -z "$sys_uptime" ]
-    then
-        sys_uptime="$(nvram get sys_uptime_now 2>/dev/null | tr -d '[:space:]')"
-    fi
-    if [ "$sys_uptime" -lt 300 ]
-    then
-        _Init_WAN_Uptime_File_
-    fi
+	# Fall back to the NVRAM snapshot if /proc/uptime was empty/unreadable #
+	if [ -z "$sys_uptime" ]
+	then
+		sys_uptime="$(nvram get sys_uptime_now 2>/dev/null | tr -d '[:space:]')"
+	fi
+	if [ "$sys_uptime" -lt 300 ]
+	then
+		_Init_WAN_Uptime_File_
+	fi
 
 	"$SCRIPT_DIR/S99tailtop" start >/dev/null 2>&1
 
@@ -3239,8 +3612,8 @@ EOF
 ## Added by Martinski W. [2025-Jul-20] ##
 ##-------------------------------------##
 if [ "$SCRIPT_BRANCH" = "master" ]
-then SCRIPT_VERS_INFO="[$branchx_TAG]"
-else SCRIPT_VERS_INFO="[$version_TAG, $branchx_TAG]"
+then SCRIPT_VERS_INFO=""
+else SCRIPT_VERS_INFO="[$versionDev_TAG]"
 fi
 
 ##------------------------------------------##
@@ -3265,7 +3638,7 @@ then
 fi
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jul-30] ##
+## Modified by Martinski W. [2025-Oct-10] ##
 ##----------------------------------------##
 case "$1" in
 	install)
@@ -3278,25 +3651,26 @@ case "$1" in
 		exit 0
 	;;
 	service_event)
-		if [ "$2" = "start" ] && echo "$3" | grep -qE "^${SCRIPT_NAME_LOWER}_NTPwatchdog"
+		[ "$2" != "start" ] && exit 0
+		if echo "$3" | grep -qE "^${SCRIPT_NAME_LOWER}_NTPwatchdog"
 		then
 			settingstate="$(echo "$3" | sed "s/${SCRIPT_NAME_LOWER}_NTPwatchdog//")";
 			settingstate="$(echo "$settingstate" | tr 'A-Z' 'a-z')"
 			NTP_BootWatchdog "$settingstate"
-		elif [ "$2" = "start" ] && echo "$3" | grep -qE "^${SCRIPT_NAME_LOWER}_NTPcheck"
+		elif echo "$3" | grep -qE "^${SCRIPT_NAME_LOWER}_NTPcheck"
 		then
 			settingstate="$(echo "$3" | sed "s/${SCRIPT_NAME_LOWER}_NTPcheck//")";
 			settingstate="$(echo "$settingstate" | tr 'A-Z' 'a-z')"
 			NTP_ReadyCheckOption "$settingstate"
-		elif [ "$2" = "start" ] && [ "$3" = "${SCRIPT_NAME_LOWER}getwanuptime" ]
+		elif [ "$3" = "${SCRIPT_NAME_LOWER}getwanuptime" ]
 		then
 			Get_WAN_Uptime_JS
-		elif [ "$2" = "start" ] && echo "$3" | grep -qE "^${SCRIPT_NAME_LOWER}_DNSmasqWatchdog"
+		elif echo "$3" | grep -qE "^${SCRIPT_NAME_LOWER}_DNSmasqWatchdog"
 		then
 			settingstate="$(echo "$3" | sed "s/${SCRIPT_NAME_LOWER}_DNSmasqWatchdog//")";
 			settingstate="$(echo "$settingstate" | tr 'A-Z' 'a-z')"
 			TailTaintDNSmasq "$settingstate"
-		elif [ "$2" = "start" ] && echo "$3" | grep -qE "^${SCRIPT_NAME_LOWER}servicerestart"
+		elif echo "$3" | grep -qE "^${SCRIPT_NAME_LOWER}servicerestart"
 		then
 			rm -f "$SCRIPT_WEB_DIR/detect_service.js"
 			echo 'var servicestatus = "InProgress";' > "$SCRIPT_WEB_DIR/detect_service.js"
@@ -3348,23 +3722,47 @@ case "$1" in
 				else
 					echo 'var servicestatus = "Invalid";' > "$SCRIPT_WEB_DIR/detect_service.js"
 				fi
-			elif echo "$srvname" | grep -q "vpnclient"
+			elif echo "$srvname" | grep -q '^vpnclient'
 			then
-				vpnno="$(echo "$srvname" | sed "s/vpnclient//")";
-				if [ -n "$(nvram get "vpn_client${vpnno}_addr")" ]
+				vpnNum="$(echo "$srvname" | sed 's/^vpnclient//')"
+				if _IsOpenVPN_Client_Configured_ "$vpnNum"
 				then
-					service restart_"$srvname" >/dev/null 2>&1
+					service "restart_$srvname" >/dev/null 2>&1
 					echo 'var servicestatus = "Done";' > "$SCRIPT_WEB_DIR/detect_service.js"
+					sleep 1
 				else
 					echo 'var servicestatus = "Invalid";' > "$SCRIPT_WEB_DIR/detect_service.js"
 				fi
-			elif echo "$srvname" | grep -q "vpnserver"
+			elif echo "$srvname" | grep -q '^vpnserver'
 			then
-				vpnno="$(echo "$srvname" | sed "s/vpnserver//")";
-				if nvram get vpn_serverx_start | grep -q "$vpnno"
+				vpnNum="$(echo "$srvname" | sed 's/^vpnserver//')"
+				if _IsOpenVPN_Server_Configured_ "$vpnNum"
 				then
-					service restart_"$srvname" >/dev/null 2>&1
+					service "restart_$srvname" >/dev/null 2>&1
 					echo 'var servicestatus = "Done";' > "$SCRIPT_WEB_DIR/detect_service.js"
+					sleep 1
+				else
+					echo 'var servicestatus = "Invalid";' > "$SCRIPT_WEB_DIR/detect_service.js"
+				fi
+			elif echo "$srvname" | grep -q '^wgClient'
+			then
+				vpnNum="$(echo "$srvname" | sed 's/^wgClient//')"
+				if _IsWireGuard_Client_Configured_ "$vpnNum"
+				then
+					_Restart_WireGuard_Client_ "$vpnNum"
+					echo 'var servicestatus = "Done";' > "$SCRIPT_WEB_DIR/detect_service.js"
+					sleep 1
+				else
+					echo 'var servicestatus = "Invalid";' > "$SCRIPT_WEB_DIR/detect_service.js"
+				fi
+			elif echo "$srvname" | grep -q '^wgServer'
+			then
+				vpnNum="$(echo "$srvname" | sed 's/^wgServer//')"
+				if _IsWireGuard_Server_Configured_ "$vpnNum"
+				then
+					_Restart_WireGuard_Server_ "$vpnNum"
+					echo 'var servicestatus = "Done";' > "$SCRIPT_WEB_DIR/detect_service.js"
+					sleep 1
 				else
 					echo 'var servicestatus = "Invalid";' > "$SCRIPT_WEB_DIR/detect_service.js"
 				fi
@@ -3376,18 +3774,18 @@ case "$1" in
 				service restart_"$srvname" >/dev/null 2>&1
 				echo 'var servicestatus = "Done";' > "$SCRIPT_WEB_DIR/detect_service.js"
 			fi
-		elif [ "$2" = "start" ] && [ "$3" = "${SCRIPT_NAME_LOWER}checkupdate" ]
+		elif [ "$3" = "${SCRIPT_NAME_LOWER}checkupdate" ]
 		then
 			Update_Check
-		elif [ "$2" = "start" ] && [ "$3" = "${SCRIPT_NAME_LOWER}doupdate" ]
+		elif [ "$3" = "${SCRIPT_NAME_LOWER}doupdate" ]
 		then
 			Update_Version force unattended
-		elif [ "$2" = "start" ] && [ "$3" = "${SCRIPT_NAME_LOWER}getaddonpages" ]
+		elif [ "$3" = "${SCRIPT_NAME_LOWER}getaddonpages" ]
 		then
 			rm -f /tmp/addonwebpages.tmp
 			sleep 3
 			Get_Addon_Pages
-		elif [ "$2" = "start" ] && [ "$3" = "${SCRIPT_NAME_LOWER}getcronjobs" ]
+		elif [ "$3" = "${SCRIPT_NAME_LOWER}getcronjobs" ]
 		then
 			rm -f /tmp/scmcronjobs.tmp
 			sleep 3
@@ -3395,18 +3793,22 @@ case "$1" in
 		fi
 		exit 0
 	;;
-    wan_event)
-        if [ "$3" = "connected" ] || [ "$3" = "connecting" ] || [ "$3" = "init" ]
+	wan_event)
+        if [ "$3" = "init" ]     || \
+           [ "$3" = "connected" ] || \
+           [ "$3" = "connecting" ]
         then
             NTP_Ready noLockCheck   # Make sure clock is synced #
 
-            _InterfaceUP_() {
+            _InterfaceUP_()
+            {
                 ifaceNum="$1"
                 ifname="$(nvram get "wan${ifaceNum}_ifname" 2>/dev/null)"
                 stateT="$(nvram get "wan${ifaceNum}_state_t" 2>/dev/null)"
 
                 carrier=""
-                if [ -n "$ifname" ] && [ -r "/sys/class/net/$ifname/carrier" ]
+                if [ -n "$ifname" ] && \
+                   [ -r "/sys/class/net/$ifname/carrier" ]
                 then
                     carrier="$(cat "/sys/class/net/$ifname/carrier" 2>/dev/null)"
                 fi
@@ -3415,9 +3817,9 @@ case "$1" in
                 [ "$stateT" = "2" ] && { [ "$carrier" = "1" ] || [ -z "$carrier" ]; }
             }
 
-
             wansMode="$(nvram get wans_mode 2>/dev/null)"
-            if [ "$wansMode" = "lb" ]; then
+            if [ "$wansMode" = "lb" ]
+            then
                 # In load-balance, trust the event's iface ($2) #
                 # don't touch the other file #
                 wanIFaceNum="$2"    # 0 or 1
@@ -3467,7 +3869,9 @@ case "$1" in
                 # Neither WAN is usable; clear both
                 rm -f /tmp/wan0_uptime.tmp /tmp/wan1_uptime.tmp
             fi
-        elif [ "$3" = "disconnected" ] || [ "$3" = "stopped" ] || [ "$3" = "disabled" ]
+        elif [ "$3" = "stopped" ]  || \
+             [ "$3" = "disabled" ] || \
+             [ "$3" = "disconnected" ]
         then
             # Disconnected/other events: #
             # Clean up only the iface that raised the event (safe in all modes) #
@@ -3477,7 +3881,7 @@ case "$1" in
             fi
         fi
         exit 0
-    ;;
+	;;
 	update)
 		Update_Version
 		exit 0

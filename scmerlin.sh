@@ -12,7 +12,7 @@
 ## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2025-Oct-10
+# Last Modified: 2025-Oct-11
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -34,7 +34,7 @@ readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
 readonly SCM_VERSION="v2.5.43"
 readonly SCRIPT_VERSION="v2.5.43"
-readonly SCRIPT_VERSTAG="25101023"
+readonly SCRIPT_VERSTAG="25101123"
 SCRIPT_BRANCH="develop"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -3274,17 +3274,17 @@ Menu_Install()
 	MainMenu
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Jul-22] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Oct-11] ##
+##----------------------------------------##
 Menu_Startup()
 {
 	Create_Dirs
 	Create_Symlinks
+	Set_Version_Custom_Settings local "$SCRIPT_VERSION"
 	Auto_Startup create 2>/dev/null
 
 	NTP_Ready
-
 	Check_Lock
 	if [ $# -eq 0 ] || [ "$1" != "force" ]
 	then
@@ -3616,15 +3616,16 @@ then SCRIPT_VERS_INFO=""
 else SCRIPT_VERS_INFO="[$versionDev_TAG]"
 fi
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Jul-22] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Oct-11] ##
+##----------------------------------------##
 if [ $# -eq 0 ] || [ -z "$1" ]
 then
 	isInteractiveMenuMode=true
 	Create_Dirs
 	Upgrade_StateJS
 	Create_Symlinks
+	Set_Version_Custom_Settings local "$SCRIPT_VERSION"
 	NTP_Ready
 	Shortcut_Script create
 	Auto_Startup create 2>/dev/null
@@ -3647,7 +3648,8 @@ case "$1" in
 		exit 0
 	;;
 	startup)
-		Menu_Startup "$([ $# -lt 2 ] && echo "" || echo "$2")"
+		shift
+		Menu_Startup "$@"
 		exit 0
 	;;
 	service_event)

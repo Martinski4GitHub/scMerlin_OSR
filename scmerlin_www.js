@@ -1,3 +1,7 @@
+/**----------------------------**/
+/** Last Modified: 2025-Oct-10 **/
+/**----------------------------**/
+
 var arrayproclistlines = [];
 var sortnameproc = 'CPU%';
 var sortdirproc = 'desc';
@@ -24,14 +28,14 @@ var srvnamevisiblelist = [true,false,true,false,true,false,false,true];
 var sortedAddonPages = [];
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2024-Apr-29] **/
+/** Modified by Martinski W. [2025-Oct-09] **/
 /**----------------------------------------**/
 function initial()
 {
 	SetCurrentPage();
 	LoadCustomSettings();
 	show_menu();
-	
+
 	Draw_Chart_NoData('nvramUsage','Data loading...');
 	Draw_Chart_NoData('jffsUsage','Data loading...');
 	Draw_Chart_NoData('MemoryUsage','Data loading...')
@@ -42,24 +46,40 @@ function initial()
 	$('#sortTableProcesses').empty();
 	$('#sortTableProcesses').append(BuildSortTableHtmlNoData());
 
-	var vpnserverstablehtml='';
-	for(var i = 1; i < 3; i++){
-		vpnserverstablehtml += BuildVPNServerTable(i);
+	let wgServerTableHTML='', wgClientsTableHTML='';
+	if (isWireGuard_Supported)
+	{
+		wgServerTableHTML += Build_WireGuardServer_Table(1);
+		$('#table_config').after(wgServerTableHTML);
+
+		for (var indx = 1; indx < 6; indx++)
+		{
+			wgClientsTableHTML += Build_WireGuardClient_Table(indx);
+		}
+		$('#table_config').after(wgClientsTableHTML);
 	}
-	$('#table_config').after(vpnserverstablehtml);
-	
-	var vpnclientstablehtml='';
-	for(var i = 1; i < 6; i++){
-		vpnclientstablehtml += BuildVPNClientTable(i);
+
+	let vpnServersTableHTML='';
+	for (var indx = 1; indx < 3; indx++)
+	{
+		vpnServersTableHTML += Build_OpenVPNServer_Table(indx);
 	}
-	$('#table_config').after(vpnclientstablehtml);
-	
-	var servicectablehtml='';
-	for(var i = 0; i < srvnamelist.length; i++){
+	$('#table_config').after(vpnServersTableHTML);
+
+	let vpnClientsTableHTML='';
+	for (var indx = 1; indx < 6; indx++)
+	{
+		vpnClientsTableHTML += Build_OpenVPNClient_Table(indx);
+	}
+	$('#table_config').after(vpnClientsTableHTML);
+
+	let servicectablehtml='';
+	for (var i = 0; i < srvnamelist.length; i++)
+	{
 		servicectablehtml += BuildServiceTable(srvnamelist[i],srvdesclist[i],srvnamevisiblelist[i],i);
 	}
 	$('#table_config').after(servicectablehtml);
-	
+
 	document.formScriptActions.action_script.value='start_scmerlingetaddonpages;start_scmerlingetcronjobs;start_scmerlingetwanuptime';
 	document.formScriptActions.submit();
 	setTimeout(load_addonpages,5000);
@@ -75,12 +95,14 @@ function initial()
 	AddEventHandlers();
 }
 
-function ScriptUpdateLayout(){
+function ScriptUpdateLayout()
+{
 	var localver = GetVersionNumber('local');
 	var serverver = GetVersionNumber('server');
 	$('#scmerlin_version_local').text(localver);
 	
-	if(localver != serverver && serverver != 'N/A'){
+	if (localver != serverver && serverver != 'N/A')
+	{
 		$('#scmerlin_version_server').text('Updated version available: '+serverver);
 		showhide('btnChkUpdate',false);
 		showhide('scmerlin_version_server',true);
@@ -121,7 +143,8 @@ function update_status(){
 	});
 }
 
-function CheckUpdate(){
+function CheckUpdate()
+{
 	showhide('btnChkUpdate',false);
 	document.formScriptActions.action_script.value='start_scmerlincheckupdate';
 	document.formScriptActions.submit();
@@ -129,7 +152,8 @@ function CheckUpdate(){
 	setTimeout(update_status,2000);
 }
 
-function DoUpdate(){
+function DoUpdate()
+{
 	document.form.action_script.value = 'start_scmerlindoupdate';
 	document.form.action_wait.value = 15;
 	$('#auto_refresh').prop('checked',false);
@@ -138,34 +162,41 @@ function DoUpdate(){
 	document.form.submit();
 }
 
-function RestartService(servicename){
+function RestartService(servicename)
+{
 	showhide('btnRestartSrv_'+servicename,false);
 	showhide('txtRestartSrv_'+servicename,false);
 	document.formScriptActions.action_script.value='start_scmerlinservicerestart'+servicename;
 	document.formScriptActions.submit();
 	document.getElementById('imgRestartSrv_'+servicename).style.display = '';
-	setTimeout(service_status,1000,servicename);
+	setTimeout(service_status,2000,servicename);
 }
 
-function service_status(servicename){
+function service_status(servicename)
+{
 	$.ajax({
 		url: '/ext/scmerlin/detect_service.js',
 		dataType: 'script',
 		error: function(xhr){
 			setTimeout(service_status,1000,servicename);
 		},
-		success: function(){
-			if(servicestatus == 'InProgress'){
+		success: function()
+		{
+			if (servicestatus == 'InProgress')
+			{
 				setTimeout(service_status,1000,servicename);
 			}
-			else{
+			else
+			{
 				document.getElementById('imgRestartSrv_'+servicename).style.display = 'none';
-				if(servicestatus == 'Done'){
+				if (servicestatus == 'Done')
+				{
 					showhide('txtRestartSrv_'+servicename,true);
 					setTimeout(showhide,3000,'txtRestartSrv_'+servicename,false);
 					setTimeout(showhide,3250,'btnRestartSrv_'+servicename,true);
 				}
-				else{
+				else
+				{
 					showhide('txtRestartSrvError_'+servicename,true);
 				}
 			}
@@ -173,7 +204,8 @@ function service_status(servicename){
 	});
 }
 
-function GetVersionNumber(versiontype){
+function GetVersionNumber(versiontype)
+{
 	var versionprop;
 	if(versiontype == 'local'){
 		versionprop = custom_settings.scmerlin_version_local;
@@ -190,7 +222,8 @@ function GetVersionNumber(versiontype){
 	}
 }
 
-function BuildSortTableHtmlNoData(){
+function BuildSortTableHtmlNoData()
+{
 	var tablehtml='<table width="100%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3" class="sortTable">';
 	tablehtml += '<tr>';
 	tablehtml += '<td colspan="3" class="nodata">';
@@ -905,7 +938,8 @@ function getNum(val){
 	return val;
 }
 
-function ToggleRefresh(){
+function ToggleRefresh()
+{
 	if($('#auto_refresh').prop('checked') == true){
 		get_proclist_file();
 	}
@@ -914,8 +948,8 @@ function ToggleRefresh(){
 	}
 }
 
-
-function BuildAddonPageTable(addonname,addonurl,loopindex){
+function BuildAddonPageTable(addonname,addonurl,loopindex)
+{
 	var addonpageshtml = '';
 	
 	if(loopindex == 0){
@@ -949,21 +983,22 @@ function BuildAddonPageTable(addonname,addonurl,loopindex){
 	return addonpageshtml;
 }
 
-function BuildServiceTable(srvname,srvdesc,srvnamevisible,loopindex){
+function BuildServiceTable(srvname,srvdesc,srvnamevisible,loopindex)
+{
 	var serviceshtml = '';
-	
-	if(loopindex == 0){
+
+	if (loopindex == 0){
 		serviceshtml += '<div style="line-height:10px;">&nbsp;</div>';
 		serviceshtml += '<table width="100%" border="1" align="center" cellpadding="2" cellspacing="0" bordercolor="#6b8fa3" class="FormTable SettingsTable" style="border:0px;" id="table_services">';
 		serviceshtml += '<thead class="collapsible-jquery" id="servicescontrol">';
 		serviceshtml += '<tr><td colspan="4">Services (click to expand/collapse)</td></tr>';
 		serviceshtml += '</thead>';
 	}
-	
-	if(loopindex == 0 || loopindex % 2 == 0){
+
+	if (loopindex == 0 || loopindex % 2 == 0){
 		serviceshtml += '<tr>';
 	}
-	if(srvnamevisible){
+	if (srvnamevisible){
 		serviceshtml += '<td class="servicename">'+srvdesc+' <span class="settingname">('+srvname+')</span></td>';
 	}
 	else{
@@ -972,95 +1007,187 @@ function BuildServiceTable(srvname,srvdesc,srvnamevisible,loopindex){
 	srvname = srvname.replace('/','');
 	serviceshtml += '<td class="servicevalue">';
 	serviceshtml += '<input type="button" class="button_gen restartbutton" onclick="RestartService(\''+srvname+'\');" value="Restart" id="btnRestartSrv_'+srvname+'">';
-	serviceshtml += '<span id="txtRestartSrv_'+srvname+'" style="display:none;" class="servicespan">Done</span>';
+	serviceshtml += '<span id="txtRestartSrv_'+srvname+'" style="display:none;" class="servicespan">DONE</span>';
 	serviceshtml += '<span id="txtRestartSrvError_'+srvname+'" style="display:none;" class="servicespan">Invalid - service disabled</span>';
 	serviceshtml += '<img id="imgRestartSrv_'+srvname+'" style="display:none;vertical-align:middle;" src="images/InternetScan.gif"/>';
 	serviceshtml += '</td>';
-	if(loopindex > 0 && (loopindex+1) % 2 == 0){
+	if (loopindex > 0 && (loopindex+1) % 2 == 0){
 		serviceshtml += '</tr>';
 	}
-	
-	if(loopindex == srvnamelist.length-1){
+
+	if (loopindex == srvnamelist.length-1){
 		serviceshtml += '</table>';
 	}
-	
 	return serviceshtml;
 }
 
-function BuildVPNClientTable(loopindex){
-	var vpnclientshtml = '';
-	var vpnclientname = 'vpnclient'+loopindex;
-	var vpnclientdesc = eval('document.form.vpnc'+loopindex+'_desc').value;
-	
-	if(loopindex == 1){
-		vpnclientshtml += '<div style="line-height:10px;">&nbsp;</div>';
-		vpnclientshtml += '<table width="100%" border="1" align="center" cellpadding="2" cellspacing="0" bordercolor="#6b8fa3" class="FormTable SettingsTable" style="border:0px;" id="table_vpnclients">';
-		vpnclientshtml += '<thead class="collapsible-jquery" id="vpnclientscontrol">';
-		vpnclientshtml += '<tr><td colspan="4">VPN Clients (click to expand/collapse)</td></tr>';
-		vpnclientshtml += '</thead>';
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-Oct-10] **/
+/**----------------------------------------**/
+function Build_OpenVPNClient_Table(theIndex)
+{
+	let vpnClientHTML = '';
+	let vpnClientName = 'vpnclient'+theIndex;
+	let vpnClientDesc = eval('document.form.vpnc'+theIndex+'_desc').value;
+
+	if (theIndex == 1)
+	{
+		vpnClientHTML += '<div style="line-height:10px;">&nbsp;</div>';
+		vpnClientHTML += '<table width="100%" border="1" align="center" cellpadding="2" cellspacing="0" bordercolor="#6b8fa3" class="FormTable SettingsTable" style="border:0px;" id="table_vpnClients">';
+		vpnClientHTML += '<thead class="collapsible-jquery" id="vpnClientsControl">';
+		vpnClientHTML += '<tr><td colspan="4">OpenVPN Clients (click to expand/collapse)</td></tr>';
+		vpnClientHTML += '</thead>';
 	}
-	
-	if(loopindex == 1 || (loopindex+1) % 2 == 0){
-		vpnclientshtml += '<tr>';
+	if (theIndex == 1 || (theIndex+1) % 2 == 0)
+	{
+		vpnClientHTML += '<tr>';
 	}
-	vpnclientshtml += '<td class="servicename">VPN Client '+loopindex;
-	vpnclientshtml += '<br /><span class="settingname">('+vpnclientdesc+')</span></td>';
-	vpnclientshtml += '<td class="servicevalue">';
-	vpnclientshtml += '<input type="button" class="button_gen restartbutton" onclick="RestartService(\''+vpnclientname+'\');" value="Restart" id="btnRestartSrv_'+vpnclientname+'">';
-	vpnclientshtml += '<span id="txtRestartSrv_'+vpnclientname+'" style="display:none;" class="servicespan">Done</span>';
-	vpnclientshtml += '<span id="txtRestartSrvError_'+vpnclientname+'" style="display:none;" class="servicespan">Invalid - VPN Client disabled</span>';
-	vpnclientshtml += '<img id="imgRestartSrv_'+vpnclientname+'" style="display:none;vertical-align:middle;" src="images/InternetScan.gif"/>';
-	vpnclientshtml += '</td>';
-	
-	if(loopindex == 5){
-		vpnclientshtml += '<td class="servicename"></td><td class="servicevalue"></td>';
+	vpnClientHTML += '<td class="servicename">OpenVPN Client '+theIndex;
+	vpnClientHTML += '<br /><span class="settingname">('+vpnClientDesc+')</span></td>';
+	vpnClientHTML += '<td class="servicevalue">';
+	vpnClientHTML += '<input type="button" class="button_gen restartbutton" onclick="RestartService(\''+vpnClientName+'\');" value="Restart" id="btnRestartSrv_'+vpnClientName+'">';
+	vpnClientHTML += '<span id="txtRestartSrv_'+vpnClientName+'" style="display:none;" class="servicespan">DONE</span>';
+	vpnClientHTML += '<span id="txtRestartSrvError_'+vpnClientName+'" style="display:none;" class="servicespan">Invalid - OpenVPN Client DISABLED</span>';
+	vpnClientHTML += '<img id="imgRestartSrv_'+vpnClientName+'" style="display:none;vertical-align:middle;" src="images/InternetScan.gif"/>';
+	vpnClientHTML += '</td>';
+
+	if (theIndex == 5)
+	{
+		vpnClientHTML += '<td class="servicename"></td><td class="servicevalue"></td>';
 	}
-	
-	if(loopindex > 1 && loopindex % 2 == 0){
-		vpnclientshtml += '</tr>';
+	if (theIndex > 1 && theIndex % 2 == 0)
+	{
+		vpnClientHTML += '</tr>';
 	}
-	
-	if(loopindex == 5){
-		vpnclientshtml += '</table>';
+	if (theIndex == 5)
+	{
+		vpnClientHTML += '</table>';
 	}
-	
-	return vpnclientshtml;
+	return vpnClientHTML;
 }
 
-function BuildVPNServerTable(loopindex){
-	var vpnservershtml = '';
-	var vpnservername = 'vpnserver'+loopindex;
-	
-	if(loopindex == 1){
-		vpnservershtml += '<div style="line-height:10px;">&nbsp;</div>';
-		vpnservershtml += '<table width="100%" border="1" align="center" cellpadding="2" cellspacing="0" bordercolor="#6b8fa3" class="FormTable SettingsTable" style="border:0px;" id="table_vpnservers">';
-		vpnservershtml += '<thead class="collapsible-jquery" id="vpnserverscontrol">';
-		vpnservershtml += '<tr><td colspan="4">VPN Servers (click to expand/collapse)</td></tr>';
-		vpnservershtml += '</thead>';
-		vpnservershtml += '<tr>';
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-Oct-10] **/
+/**----------------------------------------**/
+function Build_OpenVPNServer_Table(theIndex)
+{
+	let vpnServerHTML = '';
+	let vpnServerName = 'vpnserver'+theIndex;
+
+	if (theIndex == 1)
+	{
+		vpnServerHTML += '<div style="line-height:10px;">&nbsp;</div>';
+		vpnServerHTML += '<table width="100%" border="1" align="center" cellpadding="2" cellspacing="0" bordercolor="#6b8fa3" class="FormTable SettingsTable" style="border:0px;" id="table_vpnServers">';
+		vpnServerHTML += '<thead class="collapsible-jquery" id="vpnServersControl">';
+		vpnServerHTML += '<tr><td colspan="4">OpenVPN Servers (click to expand/collapse)</td></tr>';
+		vpnServerHTML += '</thead>';
+		vpnServerHTML += '<tr>';
 	}
-	
-	vpnservershtml += '<td class="servicename">VPN Server '+loopindex+'</td>';
-	vpnservershtml += '<td class="servicevalue">';
-	vpnservershtml += '<input type="button" class="button_gen restartbutton" onclick="RestartService(\''+vpnservername+'\');" value="Restart" id="btnRestartSrv_'+vpnservername+'">';
-	vpnservershtml += '<span id="txtRestartSrv_'+vpnservername+'" style="display:none;" class="servicespan">Done</span>';
-	vpnservershtml += '<span id="txtRestartSrvError_'+vpnservername+'" style="display:none;" class="servicespan">Invalid - VPN Server disabled</span>';
-	vpnservershtml += '<img id="imgRestartSrv_'+vpnservername+'" style="display:none;vertical-align:middle;" src="images/InternetScan.gif"/>';
-	vpnservershtml += '</td>';
-	
-	if(loopindex == 2){
-		vpnservershtml += '</tr>';
-		vpnservershtml += '</table>';
+
+	vpnServerHTML += '<td class="servicename">OpenVPN Server '+theIndex+'</td>';
+	vpnServerHTML += '<td class="servicevalue">';
+	vpnServerHTML += '<input type="button" class="button_gen restartbutton" onclick="RestartService(\''+vpnServerName+'\');" value="Restart" id="btnRestartSrv_'+vpnServerName+'">';
+	vpnServerHTML += '<span id="txtRestartSrv_'+vpnServerName+'" style="display:none;" class="servicespan">DONE</span>';
+	vpnServerHTML += '<span id="txtRestartSrvError_'+vpnServerName+'" style="display:none;" class="servicespan">Invalid - OpenVPN Server DISABLED</span>';
+	vpnServerHTML += '<img id="imgRestartSrv_'+vpnServerName+'" style="display:none;vertical-align:middle;" src="images/InternetScan.gif"/>';
+	vpnServerHTML += '</td>';
+
+	if (theIndex == 2)
+	{
+		vpnServerHTML += '</tr>';
+		vpnServerHTML += '</table>';
 	}
-	
-	return vpnservershtml;
+	return vpnServerHTML;
+}
+
+/**-------------------------------------**/
+/** Added by Martinski W. [2025-Oct-10] **/
+/**-------------------------------------**/
+function Build_WireGuardServer_Table(theIndex)
+{
+	let wgServerHTML = '';
+	let wgServerName = 'wgServer'+theIndex;
+
+	// Currently only ONE WireGuard Server is available //
+	if (theIndex == 1)
+	{
+		wgServerHTML += '<div style="line-height:10px;">&nbsp;</div>';
+		wgServerHTML += '<table width="100%" border="1" align="center" cellpadding="2" cellspacing="0" bordercolor="#6b8fa3" class="FormTable SettingsTable" style="border:0px;" id="table_wgServers">';
+		wgServerHTML += '<thead class="collapsible-jquery" id="wgServerControl">';
+		wgServerHTML += '<tr><td colspan="4">WireGuard Server (click to expand/collapse)</td></tr>';
+		wgServerHTML += '</thead>';
+		wgServerHTML += '<tr>';
+	}
+
+	wgServerHTML += '<td class="servicename">WireGuard Server '+theIndex+'</td>';
+	wgServerHTML += '<td class="servicevalue">';
+	wgServerHTML += '<input type="button" class="button_gen restartbutton" onclick="RestartService(\''+wgServerName+'\');" value="Restart" id="btnRestartSrv_'+wgServerName+'">';
+	wgServerHTML += '<span id="txtRestartSrv_'+wgServerName+'" style="display:none;" class="servicespan">DONE</span>';
+	wgServerHTML += '<span id="txtRestartSrvError_'+wgServerName+'" style="display:none;" class="servicespan">Invalid - WireGuard Server DISABLED</span>';
+	wgServerHTML += '<img id="imgRestartSrv_'+wgServerName+'" style="display:none;vertical-align:middle;" src="images/InternetScan.gif"/>';
+	wgServerHTML += '</td>';
+
+	if (theIndex == 1)
+	{
+		wgServerHTML += '<td class="servicename"></td><td class="servicevalue"></td>';
+		wgServerHTML += '</table>';
+	}
+	return wgServerHTML;
+}
+
+/**-------------------------------------**/
+/** Added by Martinski W. [2025-Oct-10] **/
+/**-------------------------------------**/
+function Build_WireGuardClient_Table(theIndex)
+{
+	let wgClientHTML = '';
+	let wgClientName = 'wgClient'+theIndex;
+	let wgClientDesc = eval('document.form.wrgc'+theIndex+'_desc').value;
+	if (wgClientDesc === null || wgClientDesc === '')
+	{ wgClientDesc = 'No description'; }
+
+	if (theIndex == 1)
+	{
+		wgClientHTML += '<div style="line-height:10px;">&nbsp;</div>';
+		wgClientHTML += '<table width="100%" border="1" align="center" cellpadding="2" cellspacing="0" bordercolor="#6b8fa3" class="FormTable SettingsTable" style="border:0px;" id="table_wgClients">';
+		wgClientHTML += '<thead class="collapsible-jquery" id="wgClientsControl">';
+		wgClientHTML += '<tr><td colspan="4">WireGuard Clients (click to expand/collapse)</td></tr>';
+		wgClientHTML += '</thead>';
+	}
+	if (theIndex == 1 || (theIndex+1) % 2 == 0)
+	{
+		wgClientHTML += '<tr>';
+	}
+	wgClientHTML += '<td class="servicename">WireGuard Client '+theIndex;
+	wgClientHTML += '<br /><span class="settingname">('+wgClientDesc+')</span></td>';
+	wgClientHTML += '<td class="servicevalue">';
+	wgClientHTML += '<input type="button" class="button_gen restartbutton" onclick="RestartService(\''+wgClientName+'\');" value="Restart" id="btnRestartSrv_'+wgClientName+'">';
+	wgClientHTML += '<span id="txtRestartSrv_'+wgClientName+'" style="display:none;" class="servicespan">DONE</span>';
+	wgClientHTML += '<span id="txtRestartSrvError_'+wgClientName+'" style="display:none;" class="servicespan">Invalid - WireGuard Client DISABLED</span>';
+	wgClientHTML += '<img id="imgRestartSrv_'+wgClientName+'" style="display:none;vertical-align:middle;" src="images/InternetScan.gif"/>';
+	wgClientHTML += '</td>';
+
+	if (theIndex == 5)
+	{
+		wgClientHTML += '<td class="servicename"></td><td class="servicevalue"></td>';
+	}
+	if (theIndex > 1 && theIndex % 2 == 0)
+	{
+		wgClientHTML += '</tr>';
+	}
+	if (theIndex == 5)
+	{
+		wgClientHTML += '</table>';
+	}
+	return wgClientHTML;
 }
 
 function round(value,decimals){
 	return Number(Math.round(value+'e'+decimals)+'e-'+decimals);
 }
 
-function Draw_Chart_NoData(txtchartname,txtmessage){
+function Draw_Chart_NoData(txtchartname,txtmessage)
+{
 	document.getElementById('canvasChart'+txtchartname).width = '265';
 	document.getElementById('canvasChart'+txtchartname).height = '250';
 	document.getElementById('canvasChart'+txtchartname).style.width = '265px';
@@ -1078,35 +1205,39 @@ function Draw_Chart_NoData(txtchartname,txtmessage){
 /**----------------------------------------**/
 /** Modified by Martinski W. [2024-Apr-21] **/
 /**----------------------------------------**/
-function Draw_Chart(txtchartname){
+function Draw_Chart(txtchartname)
+{
 	var chartData = [];
 	var chartLabels = [];
 	var chartColours = [];
 	var chartTitle = '';
 	var chartUnit = '';
 	
-	if(txtchartname == 'MemoryUsage'){
+	if (txtchartname == 'MemoryUsage')
+	{
 		chartData = [mem_stats_arr[0]*1-mem_stats_arr[1]*1-mem_stats_arr[2]*1-mem_stats_arr[3]*1,mem_stats_arr[1],mem_stats_arr[2],mem_stats_arr[3]];
 		chartLabels = ['Used','Free','Buffers','Cache'];
 		chartColours = ['#5eaec0','#12cf80','#ceca09','#9d12c4'];
 		chartTitle = 'Memory Usage';
 		chartUnit = 'MB';
 	}
-	else if(txtchartname == 'SwapUsage'){
+	else if (txtchartname == 'SwapUsage')
+	{
 		chartData = [mem_stats_arr[4],mem_stats_arr[5]*1-mem_stats_arr[4]*1];
 		chartLabels = ['Used','Free'];
 		chartColours = ['#135fee','#1aa658'];
 		chartTitle = 'Swap Usage';
 		chartUnit = 'MB';
 	}
-	else if(txtchartname == 'nvramUsage'){
+	else if (txtchartname == 'nvramUsage')
+	{
 		chartData = [round(mem_stats_arr[6]/1024,2).toFixed(2),round(nvramtotal*1-mem_stats_arr[6]*1/1024,2).toFixed(2)];
 		chartLabels = ['Used','Free'];
 		chartColours = ['#5eaec0','#12cf80'];
 		chartTitle = 'NVRAM Usage';
 		chartUnit = 'KB';
 	}
-	else if(txtchartname == 'jffsUsage')
+	else if (txtchartname == 'jffsUsage')
 	{
 		chartData = [jffs_Used,jffs_Free];
 		chartLabels = ['Used','Free'];

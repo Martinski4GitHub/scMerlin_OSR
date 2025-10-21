@@ -12,7 +12,7 @@
 ## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2025-Oct-11
+# Last Modified: 2025-Oct-20
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -32,9 +32,9 @@
 ### Start of script variables ###
 readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
-readonly SCM_VERSION="v2.5.43"
-readonly SCRIPT_VERSION="v2.5.43"
-readonly SCRIPT_VERSTAG="25101123"
+readonly SCM_VERSION="v2.5.44"
+readonly SCRIPT_VERSION="v2.5.44"
+readonly SCRIPT_VERSTAG="25102022"
 SCRIPT_BRANCH="develop"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -2594,7 +2594,7 @@ _NTPMerlin_GetTimeServerIDfromConfig_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Oct-10] ##
+## Modified by Martinski W. [2024-Oct-19] ##
 ##----------------------------------------##
 MainMenu()
 {
@@ -2618,9 +2618,37 @@ MainMenu()
 	printf "   2.   Internet connection\n"
 	printf "   3.   Web Interface (httpd)\n"
 	printf "   4.   WiFi\n"
-	printf "   5.   FTP Server (vsftpd)\n"
-	printf "   6.   Samba\n"
-	printf "   7.   DDNS client\n"
+
+	ENABLED_FTP="$(nvram get enable_ftp)"
+	if ! Validate_Number "$ENABLED_FTP"
+	then ENABLED_FTP=0
+	fi
+	if [ "$ENABLED_FTP" -eq 1 ]
+	then ftpsTagStr=""
+	else ftpsTagStr="- ${REDct}[*NOT enabled*]${CLRct}"
+	fi
+	printf "   5.   FTP Server (vsftpd) ${ftpsTagStr}\n"
+
+	ENABLED_SAMBA="$(nvram get enable_samba)"
+	if ! Validate_Number "$ENABLED_SAMBA"
+	then ENABLED_SAMBA=0
+	fi
+	if [ "$ENABLED_SAMBA" -eq 1 ]
+	then sambaTagStr=""
+	else sambaTagStr="${REDct}[*NOT enabled*]${CLRct}"
+	fi
+	printf "   6.   Samba ${sambaTagStr}\n"
+
+	ENABLED_DDNS="$(nvram get ddns_enable_x)"
+	if ! Validate_Number "$ENABLED_DDNS"
+	then ENABLED_DDNS=0
+	fi
+	if [ "$ENABLED_DDNS" -eq 1 ]
+	then ddnsTagStr=""
+	else ddnsTagStr="${REDct}[*NOT enabled*]${CLRct}"
+	fi
+	printf "   7.   DDNS client ${ddnsTagStr}\n"
+
 	printf "   8.   Timeserver (ntpd/chronyd)\n"
 
 	##---------- OpenVPN CLIENTS ----------##
@@ -2775,16 +2803,16 @@ MainMenu()
 		read -r menuOption
 		case "$menuOption" in
 			1)
-				printf "\\n"
+				printf "\n"
 				service restart_dnsmasq >/dev/null 2>&1
 				PressEnter
 				break
 			;;
 			2)
-				printf "\\n"
+				printf "\n"
 				while true
 				do
-					printf "\\n${BOLD}Internet connection will take 30s-60s to reconnect. Continue? (y/n)${CLEARFORMAT}  "
+					printf "\n${BOLD}Internet connection will take 30s-60s to reconnect. Continue? (y/n)${CLEARFORMAT}  "
 					read -r confirm
 					case "$confirm" in
 						y|Y)
@@ -2800,36 +2828,32 @@ MainMenu()
 				break
 			;;
 			3)
-				printf "\\n"
+				printf "\n"
 				service restart_httpd >/dev/null 2>&1
 				PressEnter
 				break
 			;;
 			4)
-				printf "\\n"
+				printf "\n"
 				service restart_wireless >/dev/null 2>&1
 				PressEnter
 				break
 			;;
 			5)
-				ENABLED_FTP="$(nvram get enable_ftp)"
-				if ! Validate_Number "$ENABLED_FTP"; then ENABLED_FTP=0; fi
 				if [ "$ENABLED_FTP" -eq 1 ]
 				then
-					printf "\\n"
+					printf "\n"
 					service restart_ftpd >/dev/null 2>&1
 				else
-				printf "\n${BOLD}${ERR}Invalid selection (FTP is NOT enabled)${CLEARFORMAT}\n\n"
+					printf "\n${BOLD}${ERR}Invalid selection (FTP is NOT enabled)${CLEARFORMAT}\n\n"
 				fi
 				PressEnter
 				break
 			;;
 			6)
-				ENABLED_SAMBA="$(nvram get enable_samba)"
-				if ! Validate_Number "$ENABLED_SAMBA"; then ENABLED_SAMBA=0; fi
 				if [ "$ENABLED_SAMBA" -eq 1 ]
 				then
-					printf "\\n"
+					printf "\n"
 					service restart_samba >/dev/null 2>&1
 				else
 					printf "\n${BOLD}${ERR}Invalid selection (Samba is NOT enabled)${CLEARFORMAT}\n\n"
@@ -2838,11 +2862,9 @@ MainMenu()
 				break
 			;;
 			7)
-				ENABLED_DDNS="$(nvram get ddns_enable_x)"
-				if ! Validate_Number "$ENABLED_DDNS"; then ENABLED_DDNS=0; fi
 				if [ "$ENABLED_DDNS" -eq 1 ]
 				then
-					printf "\\n"
+					printf "\n"
 					service restart_ddns >/dev/null 2>&1
 				else
 					printf "\n${BOLD}${ERR}Invalid selection (DDNS client NOT enabled)${CLEARFORMAT}\n\n"
@@ -2938,7 +2960,7 @@ MainMenu()
 			;;
 			et)
 				printf "\n"
-				if [ -x /opt/bin/opkg ]
+				if [ -x /opt/bin/opkg ] && [ -x /opt/etc/init.d/rc.unslung ]
 				then
 					if Check_Lock menu
 					then
@@ -2965,9 +2987,9 @@ MainMenu()
 				break
 			;;
 			c)
-				printf "\\n"
+				printf "\n"
 				program=""
-				if [ -f /opt/bin/opkg ]
+				if [ -x /opt/bin/opkg ]
 				then
 					if [ -f /opt/bin/htop ]
 					then
@@ -3005,9 +3027,9 @@ MainMenu()
 			;;
 			m)
 				ScriptHeader
-				printf "\\n"
+				printf "\n"
 				free
-				printf "\\n"
+				printf "\n"
 				PressEnter
 				break
 			;;
@@ -3021,7 +3043,7 @@ MainMenu()
 			cr)
 				ScriptHeader
 				Get_Cron_Jobs
-				printf "\\n"
+				printf "\n"
 				PressEnter
 				break
 			;;
@@ -3639,7 +3661,7 @@ then
 fi
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Oct-10] ##
+## Modified by Martinski W. [2025-Oct-19] ##
 ##----------------------------------------##
 case "$1" in
 	install)
@@ -3681,9 +3703,11 @@ case "$1" in
 			if [ "$srvname" = "vsftpd" ]
 			then
 				ENABLED_FTP="$(nvram get enable_ftp)"
-				if ! Validate_Number "$ENABLED_FTP"; then ENABLED_FTP=0; fi
-				if [ "$ENABLED_FTP" -eq 1 ]; then
-					service restart_"$srvname" >/dev/null 2>&1
+				if ! Validate_Number "$ENABLED_FTP"
+				then ENABLED_FTP=0; fi
+				if [ "$ENABLED_FTP" -eq 1 ]
+				then
+					service restart_ftpd >/dev/null 2>&1
 					echo 'var servicestatus = "Done";' > "$SCRIPT_WEB_DIR/detect_service.js"
 				else
 					echo 'var servicestatus = "Invalid";' > "$SCRIPT_WEB_DIR/detect_service.js"
@@ -3691,9 +3715,23 @@ case "$1" in
 			elif [ "$srvname" = "samba" ]
 			then
 				ENABLED_SAMBA="$(nvram get enable_samba)"
-				if ! Validate_Number "$ENABLED_SAMBA"; then ENABLED_SAMBA=0; fi
-				if [ "$ENABLED_SAMBA" -eq 1 ]; then
-					service restart_"$srvname" >/dev/null 2>&1
+				if ! Validate_Number "$ENABLED_SAMBA"
+				then ENABLED_SAMBA=0; fi
+				if [ "$ENABLED_SAMBA" -eq 1 ]
+				then
+					service restart_samba >/dev/null 2>&1
+					echo 'var servicestatus = "Done";' > "$SCRIPT_WEB_DIR/detect_service.js"
+				else
+					echo 'var servicestatus = "Invalid";' > "$SCRIPT_WEB_DIR/detect_service.js"
+				fi
+			elif [ "$srvname" = "ddns" ]
+			then
+				ENABLED_DDNS="$(nvram get ddns_enable_x)"
+				if ! Validate_Number "$ENABLED_DDNS"
+				then ENABLED_DDNS=0; fi
+				if [ "$ENABLED_DDNS" -eq 1 ]
+				then
+					service restart_ddns >/dev/null 2>&1
 					echo 'var servicestatus = "Done";' > "$SCRIPT_WEB_DIR/detect_service.js"
 				else
 					echo 'var servicestatus = "Invalid";' > "$SCRIPT_WEB_DIR/detect_service.js"
@@ -3770,8 +3808,14 @@ case "$1" in
 				fi
 			elif [ "$srvname" = "entware" ]
 			then
-				/opt/etc/init.d/rc.unslung restart
-				echo 'var servicestatus = "Done";' > "$SCRIPT_WEB_DIR/detect_service.js"
+				if [ -x /opt/bin/opkg ] && [ -x /opt/etc/init.d/rc.unslung ]
+				then
+					/opt/etc/init.d/rc.unslung restart
+					echo 'var servicestatus = "Done";' > "$SCRIPT_WEB_DIR/detect_service.js"
+					sleep 1
+				else
+					echo 'var servicestatus = "Invalid";' > "$SCRIPT_WEB_DIR/detect_service.js"
+				fi
 			else
 				service restart_"$srvname" >/dev/null 2>&1
 				echo 'var servicestatus = "Done";' > "$SCRIPT_WEB_DIR/detect_service.js"

@@ -1,5 +1,5 @@
 /**----------------------------**/
-/** Last Modified: 2025-Oct-10 **/
+/** Last Modified: 2025-Oct-19 **/
 /**----------------------------**/
 
 var arrayproclistlines = [];
@@ -983,19 +983,19 @@ function BuildAddonPageTable(addonname,addonurl,loopindex)
 	return addonpageshtml;
 }
 
-function BuildServiceTable(srvname,srvdesc,srvnamevisible,loopindex)
+function BuildServiceTable(srvname,srvdesc,srvnamevisible,theIndex)
 {
 	var serviceshtml = '';
 
-	if (loopindex == 0){
+	if (theIndex == 0)
+	{
 		serviceshtml += '<div style="line-height:10px;">&nbsp;</div>';
 		serviceshtml += '<table width="100%" border="1" align="center" cellpadding="2" cellspacing="0" bordercolor="#6b8fa3" class="FormTable SettingsTable" style="border:0px;" id="table_services">';
 		serviceshtml += '<thead class="collapsible-jquery" id="servicescontrol">';
 		serviceshtml += '<tr><td colspan="4">Services (click to expand/collapse)</td></tr>';
 		serviceshtml += '</thead>';
 	}
-
-	if (loopindex == 0 || loopindex % 2 == 0){
+	if (theIndex == 0 || theIndex % 2 == 0){
 		serviceshtml += '<tr>';
 	}
 	if (srvnamevisible){
@@ -1008,14 +1008,14 @@ function BuildServiceTable(srvname,srvdesc,srvnamevisible,loopindex)
 	serviceshtml += '<td class="servicevalue">';
 	serviceshtml += '<input type="button" class="button_gen restartbutton" onclick="RestartService(\''+srvname+'\');" value="Restart" id="btnRestartSrv_'+srvname+'">';
 	serviceshtml += '<span id="txtRestartSrv_'+srvname+'" style="display:none;" class="servicespan">DONE</span>';
-	serviceshtml += '<span id="txtRestartSrvError_'+srvname+'" style="display:none;" class="servicespan">Invalid - service disabled</span>';
+	serviceshtml += '<span id="txtRestartSrvError_'+srvname+'" style="display:none;" class="servicespan">Invalid - Service DISABLED</span>';
 	serviceshtml += '<img id="imgRestartSrv_'+srvname+'" style="display:none;vertical-align:middle;" src="images/InternetScan.gif"/>';
 	serviceshtml += '</td>';
-	if (loopindex > 0 && (loopindex+1) % 2 == 0){
+
+	if (theIndex > 0 && (theIndex+1) % 2 == 0){
 		serviceshtml += '</tr>';
 	}
-
-	if (loopindex == srvnamelist.length-1){
+	if (theIndex == srvnamelist.length-1){
 		serviceshtml += '</table>';
 	}
 	return serviceshtml;

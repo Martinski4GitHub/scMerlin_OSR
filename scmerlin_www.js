@@ -1,5 +1,5 @@
 /**----------------------------**/
-/** Last Modified: 2025-Oct-19 **/
+/** Last Modified: 2025-Oct-21 **/
 /**----------------------------**/
 
 var arrayproclistlines = [];
@@ -983,6 +983,9 @@ function BuildAddonPageTable(addonname,addonurl,loopindex)
 	return addonpageshtml;
 }
 
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-Oct-21] **/
+/**----------------------------------------**/
 function BuildServiceTable(srvname,srvdesc,srvnamevisible,theIndex)
 {
 	var serviceshtml = '';
@@ -998,17 +1001,19 @@ function BuildServiceTable(srvname,srvdesc,srvnamevisible,theIndex)
 	if (theIndex == 0 || theIndex % 2 == 0){
 		serviceshtml += '<tr>';
 	}
-	if (srvnamevisible){
+	if (srvnamevisible)
+	{
 		serviceshtml += '<td class="servicename">'+srvdesc+' <span class="settingname">('+srvname+')</span></td>';
 	}
-	else{
+	else
+	{
 		serviceshtml += '<td class="servicename">'+srvdesc+'</td>';
 	}
 	srvname = srvname.replace('/','');
 	serviceshtml += '<td class="servicevalue">';
 	serviceshtml += '<input type="button" class="button_gen restartbutton" onclick="RestartService(\''+srvname+'\');" value="Restart" id="btnRestartSrv_'+srvname+'">';
 	serviceshtml += '<span id="txtRestartSrv_'+srvname+'" style="display:none;" class="servicespan">DONE</span>';
-	serviceshtml += '<span id="txtRestartSrvError_'+srvname+'" style="display:none;" class="servicespan">Invalid - Service DISABLED</span>';
+	serviceshtml += '<span id="txtRestartSrvError_'+srvname+'" style="display:none;" class="servicespan">Service is DISABLED</span>';
 	serviceshtml += '<img id="imgRestartSrv_'+srvname+'" style="display:none;vertical-align:middle;" src="images/InternetScan.gif"/>';
 	serviceshtml += '</td>';
 
@@ -1047,7 +1052,7 @@ function Build_OpenVPNClient_Table(theIndex)
 	vpnClientHTML += '<td class="servicevalue">';
 	vpnClientHTML += '<input type="button" class="button_gen restartbutton" onclick="RestartService(\''+vpnClientName+'\');" value="Restart" id="btnRestartSrv_'+vpnClientName+'">';
 	vpnClientHTML += '<span id="txtRestartSrv_'+vpnClientName+'" style="display:none;" class="servicespan">DONE</span>';
-	vpnClientHTML += '<span id="txtRestartSrvError_'+vpnClientName+'" style="display:none;" class="servicespan">Invalid - OpenVPN Client DISABLED</span>';
+	vpnClientHTML += '<span id="txtRestartSrvError_'+vpnClientName+'" style="display:none;" class="servicespan">OVPN Client is DISABLED</span>';
 	vpnClientHTML += '<img id="imgRestartSrv_'+vpnClientName+'" style="display:none;vertical-align:middle;" src="images/InternetScan.gif"/>';
 	vpnClientHTML += '</td>';
 
@@ -1088,7 +1093,7 @@ function Build_OpenVPNServer_Table(theIndex)
 	vpnServerHTML += '<td class="servicevalue">';
 	vpnServerHTML += '<input type="button" class="button_gen restartbutton" onclick="RestartService(\''+vpnServerName+'\');" value="Restart" id="btnRestartSrv_'+vpnServerName+'">';
 	vpnServerHTML += '<span id="txtRestartSrv_'+vpnServerName+'" style="display:none;" class="servicespan">DONE</span>';
-	vpnServerHTML += '<span id="txtRestartSrvError_'+vpnServerName+'" style="display:none;" class="servicespan">Invalid - OpenVPN Server DISABLED</span>';
+	vpnServerHTML += '<span id="txtRestartSrvError_'+vpnServerName+'" style="display:none;" class="servicespan">OVPN Server is DISABLED</span>';
 	vpnServerHTML += '<img id="imgRestartSrv_'+vpnServerName+'" style="display:none;vertical-align:middle;" src="images/InternetScan.gif"/>';
 	vpnServerHTML += '</td>';
 
@@ -1123,7 +1128,7 @@ function Build_WireGuardServer_Table(theIndex)
 	wgServerHTML += '<td class="servicevalue">';
 	wgServerHTML += '<input type="button" class="button_gen restartbutton" onclick="RestartService(\''+wgServerName+'\');" value="Restart" id="btnRestartSrv_'+wgServerName+'">';
 	wgServerHTML += '<span id="txtRestartSrv_'+wgServerName+'" style="display:none;" class="servicespan">DONE</span>';
-	wgServerHTML += '<span id="txtRestartSrvError_'+wgServerName+'" style="display:none;" class="servicespan">Invalid - WireGuard Server DISABLED</span>';
+	wgServerHTML += '<span id="txtRestartSrvError_'+wgServerName+'" style="display:none;" class="servicespan">WG Server is DISABLED</span>';
 	wgServerHTML += '<img id="imgRestartSrv_'+wgServerName+'" style="display:none;vertical-align:middle;" src="images/InternetScan.gif"/>';
 	wgServerHTML += '</td>';
 
@@ -1163,7 +1168,7 @@ function Build_WireGuardClient_Table(theIndex)
 	wgClientHTML += '<td class="servicevalue">';
 	wgClientHTML += '<input type="button" class="button_gen restartbutton" onclick="RestartService(\''+wgClientName+'\');" value="Restart" id="btnRestartSrv_'+wgClientName+'">';
 	wgClientHTML += '<span id="txtRestartSrv_'+wgClientName+'" style="display:none;" class="servicespan">DONE</span>';
-	wgClientHTML += '<span id="txtRestartSrvError_'+wgClientName+'" style="display:none;" class="servicespan">Invalid - WireGuard Client DISABLED</span>';
+	wgClientHTML += '<span id="txtRestartSrvError_'+wgClientName+'" style="display:none;" class="servicespan">WG Client is DISABLED</span>';
 	wgClientHTML += '<img id="imgRestartSrv_'+wgClientName+'" style="display:none;vertical-align:middle;" src="images/InternetScan.gif"/>';
 	wgClientHTML += '</td>';
 

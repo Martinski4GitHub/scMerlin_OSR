@@ -12,7 +12,7 @@
 ## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2025-Oct-20
+# Last Modified: 2025-Oct-21
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -34,7 +34,7 @@ readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
 readonly SCM_VERSION="v2.5.44"
 readonly SCRIPT_VERSION="v2.5.44"
-readonly SCRIPT_VERSTAG="25102022"
+readonly SCRIPT_VERSTAG="25102122"
 SCRIPT_BRANCH="develop"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -2740,7 +2740,7 @@ MainMenu()
 	fi
 
 	##---------- ENTWARE ----------##
-	if [ -x /opt/bin/opkg ]
+	if [ -x /opt/bin/opkg ] && [ -x /opt/etc/init.d/rc.unslung ]
 	then
 		printf "\n${BOLDUNDERLN}${GRNct}Entware${CLEARFORMAT}\n"
 		printf "   et.  Restart all Entware applications\n"

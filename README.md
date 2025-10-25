@@ -27,8 +27,10 @@ You must be running firmware Merlin 384.15/384.13_4 or Fork 43E5 (or later) [Asu
 ### WebUI
 scMerlin can be used via the WebUI, in the Addons section.
 
-* Sample screnshot:
+* Sample screnshots:
+
 ![WebUI Page_1] (https://github.com/AMTM-OSR/scMerlin/blob/develop/Images/scMerlin_WebUI_Pg1.jpg)
+
 ![WebUI Page_2] (https://github.com/AMTM-OSR/scMerlin/blob/develop/Images/scMerlin_WebUI_Pg2.jpg)
 
 ### Command Line
@@ -42,8 +44,10 @@ If this does not work, you will need to use the full path:
 /jffs/scripts/scmerlin
 ```
 
-* Sample screnshot:
+* Sample screnshots:
+
 ![SSH CLI Menu Page_1] (https://github.com/AMTM-OSR/scMerlin/blob/develop/Images/scMerlin_SSH_CLI_Menu_Pg1.jpg)
+
 ![SSH CLI Menu Page_2] (https://github.com/AMTM-OSR/scMerlin/blob/develop/Images/scMerlin_SSH_CLI_Menu_Pg2.jpg)
 
 
@@ -53,6 +57,7 @@ The "Services" and "VPN" sections on the WebUI page have the option to send a re
 When clicking on the "Restart" button for a service, the WebUI makes a call to the script to check and then send the appropriate command(s) to restart the selected service or VPN; but the requested command(s) may not actually be sent if it's determined that the selected service is *not* enabled, or if the VPN client/server is *not* actually configured to be started, in which case the WebUI will respond by displaying a message indicating that the service is DISABLED and therefore was NOT restarted.
 
 * Sample screnshot:
+
 ![WebUI Services DISABLED] (https://github.com/AMTM-OSR/scMerlin/blob/develop/Images/scMerlin_WebUI_Services_DISABLED.jpg)
 
 

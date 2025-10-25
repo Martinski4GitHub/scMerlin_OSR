@@ -29,9 +29,9 @@ scMerlin can be used via the WebUI, in the Addons section.
 
 * Sample screnshots:
 
-![WebUI Page_1] (https://github.com/AMTM-OSR/scMerlin/blob/develop/Images/scMerlin_WebUI_Pg1.jpg)
+![WebUI Page_1](https://github.com/AMTM-OSR/scMerlin/blob/develop/Images/scMerlin_WebUI_Pg1.jpg)
 
-![WebUI Page_2] (https://github.com/AMTM-OSR/scMerlin/blob/develop/Images/scMerlin_WebUI_Pg2.jpg)
+![WebUI Page_2](https://github.com/AMTM-OSR/scMerlin/blob/develop/Images/scMerlin_WebUI_Pg2.jpg)
 
 ### Command Line
 To launch the scMerlin menu after installation, use:
@@ -46,9 +46,9 @@ If this does not work, you will need to use the full path:
 
 * Sample screnshots:
 
-![SSH CLI Menu Page_1] (https://github.com/AMTM-OSR/scMerlin/blob/develop/Images/scMerlin_SSH_CLI_Menu_Pg1.jpg)
+![SSH CLI Menu Page_1](https://github.com/AMTM-OSR/scMerlin/blob/develop/Images/scMerlin_SSH_CLI_Menu_Pg1.jpg)
 
-![SSH CLI Menu Page_2] (https://github.com/AMTM-OSR/scMerlin/blob/develop/Images/scMerlin_SSH_CLI_Menu_Pg2.jpg)
+![SSH CLI Menu Page_2](https://github.com/AMTM-OSR/scMerlin/blob/develop/Images/scMerlin_SSH_CLI_Menu_Pg2.jpg)
 
 
 ## NOTE:
@@ -58,7 +58,7 @@ When clicking on the "Restart" button for a service, the WebUI makes a call to t
 
 * Sample screnshot:
 
-![WebUI Services DISABLED] (https://github.com/AMTM-OSR/scMerlin/blob/develop/Images/scMerlin_WebUI_Services_DISABLED.jpg)
+![WebUI Services DISABLED](https://github.com/AMTM-OSR/scMerlin/blob/develop/Images/scMerlin_WebUI_Services_DISABLED.jpg)
 
 
 ## Help

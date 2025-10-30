@@ -19,14 +19,12 @@
 <script language="JavaScript" type="text/javascript" src="/popup.js"></script>
 <script language="JavaScript" type="text/javascript" src="/help.js"></script>
 <script language="JavaScript" type="text/javascript" src="/ext/shared-jy/detect.js"></script>
-<script language="JavaScript" type="text/javascript" src="/tmhist.js"></script>
-<script language="JavaScript" type="text/javascript" src="/tmmenu.js"></script>
 <script language="JavaScript" type="text/javascript" src="/client_function.js"></script>
 <script language="JavaScript" type="text/javascript" src="/validator.js"></script>
 <script type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2025-May-17 **/
+/** Last Modified: 2025-Oct-27 **/
 /**----------------------------**/
 
 let sitemapFirmVerStr = '<% nvram_get("firmver"); %>';

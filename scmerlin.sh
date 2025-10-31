@@ -12,7 +12,7 @@
 ## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2025-Oct-24
+# Last Modified: 2025-Oct-30
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -32,9 +32,9 @@
 ### Start of script variables ###
 readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
-readonly SCM_VERSION="v2.5.44"
-readonly SCRIPT_VERSION="v2.5.44"
-readonly SCRIPT_VERSTAG="25102420"
+readonly SCM_VERSION="v2.5.45"
+readonly SCRIPT_VERSION="v2.5.45"
+readonly SCRIPT_VERSTAG="25103020"
 SCRIPT_BRANCH="develop"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"

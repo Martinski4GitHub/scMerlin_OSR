@@ -12,7 +12,7 @@
 ## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2025-Oct-24
+# Last Modified: 2025-Nov-03
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -32,10 +32,10 @@
 ### Start of script variables ###
 readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
-readonly SCM_VERSION="v2.5.44"
-readonly SCRIPT_VERSION="v2.5.44"
-readonly SCRIPT_VERSTAG="25102420"
-SCRIPT_BRANCH="master"
+readonly SCM_VERSION="v2.5.45"
+readonly SCRIPT_VERSION="v2.5.45"
+readonly SCRIPT_VERSTAG="25110320"
+SCRIPT_BRANCH="develop"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
 readonly SCRIPT_WEBPAGE_DIR="$(readlink -f /www/user)"
@@ -348,7 +348,7 @@ Print_Output()
 		    "$PASS") prioNum=6 ;; #INFO#
 		          *) prioNum=5 ;; #NOTICE#
 		esac
-		logger -t "$SCRIPT_NAME" -p $prioNum "$2"
+		logger -t "${SCRIPT_NAME}_[$$]" -p $prioNum "$2"
 	fi
 	printf "${BOLD}${3}%s${CLEARFORMAT}\n\n" "$2"
 }
@@ -1863,15 +1863,15 @@ NTP_BootWatchdog()
 #
 if [ "$(nvram get ntp_ready)" -eq 1 ]
 then
-	/usr/bin/logger -st ntpbootwatchdog "NTP is synced, exiting"
+	/usr/bin/logger -st ntpBootWatchdog "NTP is synced, exiting"
 else
-	/usr/bin/logger -st ntpbootwatchdog "NTP boot watchdog started..."
+	/usr/bin/logger -st ntpBootWatchdog "NTP boot watchdog started..."
 	ntpTimerSecs=0
 	while [ "$(nvram get ntp_ready)" -eq 0 ] && [ "$ntpTimerSecs" -lt 600 ]
 	do
 		if [ "$ntpTimerSecs" -gt 0 ] && [ "$((ntpTimerSecs % 30))" -eq 0 ]
 		then
-			/usr/bin/logger -st ntpbootwatchdog "Still waiting for NTP to sync [$ntpTimerSecs secs]..."
+			/usr/bin/logger -st ntpBootWatchdog "Still waiting for NTP to sync [$ntpTimerSecs secs]..."
 			killall ntp
 			killall ntpd
 			service restart_ntpd
@@ -1881,43 +1881,45 @@ else
 	done
 
 	if [ "$ntpTimerSecs" -ge 600 ]; then
-		/usr/bin/logger -st ntpbootwatchdog "NTP failed to sync after 10 minutes - please check immediately!"
+		/usr/bin/logger -st ntpBootWatchdog "NTP failed to sync after 10 minutes - please check immediately!"
 		exit 1
 	else
-		/usr/bin/logger -st ntpbootwatchdog "NTP has synced!"
+		/usr/bin/logger -st ntpBootWatchdog "NTP has synced!"
 	fi
 fi
 EOF
 			chmod +x /jffs/scripts/ntpbootwatchdog.sh
-			if [ -f /jffs/scripts/init-start ]; then
-				STARTUPLINECOUNT=$(grep -i -c 'ntpbootwatchdog' /jffs/scripts/init-start)
+			if [ -f /jffs/scripts/init-start ]
+			then
+				STARTUPLINECOUNT="$(grep -i -c 'ntpbootwatchdog' /jffs/scripts/init-start)"
 				if [ "$STARTUPLINECOUNT" -gt 0 ]; then
 					sed -i -e '/ntpbootwatchdog/d' /jffs/scripts/init-start
 				fi
 
-				STARTUPLINECOUNT=$(grep -i -c '# '"$SCRIPT_NAME" /jffs/scripts/init-start)
-				STARTUPLINECOUNTEX=$(grep -i -cx "sh /jffs/scripts/ntpbootwatchdog.sh & # $SCRIPT_NAME" /jffs/scripts/init-start)
+				STARTUPLINECOUNT="$(grep -i -c '# '"$SCRIPT_NAME" /jffs/scripts/init-start)"
+				STARTUPLINECOUNTEX="$(grep -i -cx "sh /jffs/scripts/ntpbootwatchdog.sh & # $SCRIPT_NAME" /jffs/scripts/init-start)"
 
-				if [ "$STARTUPLINECOUNT" -gt 1 ] || { [ "$STARTUPLINECOUNTEX" -eq 0 ] && [ "$STARTUPLINECOUNT" -gt 0 ]; }; then
+				if [ "$STARTUPLINECOUNT" -gt 1 ] || { [ "$STARTUPLINECOUNTEX" -eq 0 ] && [ "$STARTUPLINECOUNT" -gt 0 ]; }
+				then
 					sed -i -e '/# '"$SCRIPT_NAME"'/d' /jffs/scripts/init-start
 				fi
-
 				if [ "$STARTUPLINECOUNTEX" -eq 0 ]; then
 					echo "sh /jffs/scripts/ntpbootwatchdog.sh & # $SCRIPT_NAME" >> /jffs/scripts/init-start
 				fi
 			else
-				echo "#!/bin/sh" > /jffs/scripts/init-start
-				echo "" >> /jffs/scripts/init-start
-				echo "sh /jffs/scripts/ntpbootwatchdog.sh & # $SCRIPT_NAME" >> /jffs/scripts/init-start
+				{
+				   echo "#!/bin/sh" ; echo
+				   echo "sh /jffs/scripts/ntpbootwatchdog.sh & # $SCRIPT_NAME"
+				} > /jffs/scripts/init-start
 				chmod 0755 /jffs/scripts/init-start
 			fi
 		;;
 		disable)
 			rm -f "$NTP_WATCHDOG_FILE"
 			rm -f /jffs/scripts/ntpbootwatchdog.sh
-			if [ -f /jffs/scripts/init-start ]; then
-				STARTUPLINECOUNT=$(grep -i -c '# '"$SCRIPT_NAME" /jffs/scripts/init-start)
-
+			if [ -f /jffs/scripts/init-start ]
+			then
+				STARTUPLINECOUNT="$(grep -i -c '# '"$SCRIPT_NAME" /jffs/scripts/init-start)"
 				if [ "$STARTUPLINECOUNT" -gt 0 ]; then
 					sed -i -e '/# '"$SCRIPT_NAME"'/d' /jffs/scripts/init-start
 				fi

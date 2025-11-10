@@ -20,6 +20,11 @@ Or using your preferred SSH client/terminal, copy and paste the following comman
 /usr/sbin/curl --retry 3 "https://raw.githubusercontent.com/AMTM-OSR/scmerlin/master/scmerlin.sh" -o "/jffs/scripts/scmerlin" && chmod 0755 /jffs/scripts/scmerlin && /jffs/scripts/scmerlin install
 ```
 
+## Prerequisites
+Asuswrt-Merlin running on a supported ASUS router
+Entware installed, preferably using amtm
+jffs scripts enabled in the firmware; installing Entware should have taken care of this part
+
 ## Supported firmware versions
 You must be running firmware Merlin 384.15/384.13_4 or Fork 43E5 (or later) [Asuswrt-Merlin](https://asuswrt.lostrealm.ca/)
 

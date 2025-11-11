@@ -21,9 +21,9 @@ Or using your preferred SSH client/terminal, copy and paste the following comman
 ```
 
 ## Prerequisites
-- Asuswrt-Merlin running on a supported ASUS router
-- Entware (optional but recommended), preferably installed via amtm, to enable enhanced features and functionality
-- jffs scripts enabled in the firmware; this can be set manually, and installing Entware via amtm usually takes care of it
+1. [Asuswrt-Merlin](https://asuswrt.lostrealm.ca/ "Pure Freaking Magic") running on a supported ASUS router
+- **Entware** (optional but recommended), preferably installed via [amtm](https://github.com/decoderman/amtm "amtm"), to enable enhanced features and functionality
+- jffs scripts enabled in the firmware; this can be set manually, and installing **Entware** via amtm usually takes care of it
 
 ## Supported firmware versions
 You must be running firmware Merlin 384.15/384.13_4 or Fork 43E5 (or later) [Asuswrt-Merlin](https://asuswrt.lostrealm.ca/)

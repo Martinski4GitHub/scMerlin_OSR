@@ -12,7 +12,7 @@
 ## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2025-Nov-03
+# Last Modified: 2025-Nov-23
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -32,9 +32,9 @@
 ### Start of script variables ###
 readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
-readonly SCM_VERSION="v2.5.45"
-readonly SCRIPT_VERSION="v2.5.45"
-readonly SCRIPT_VERSTAG="25110320"
+readonly SCM_VERSION="v2.5.46"
+readonly SCRIPT_VERSION="v2.5.46"
+readonly SCRIPT_VERSTAG="25112322"
 SCRIPT_BRANCH="develop"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -1872,8 +1872,8 @@ else
 		if [ "$ntpTimerSecs" -gt 0 ] && [ "$((ntpTimerSecs % 30))" -eq 0 ]
 		then
 			/usr/bin/logger -st ntpBootWatchdog "Still waiting for NTP to sync [$ntpTimerSecs secs]..."
-			killall ntp
-			killall ntpd
+			killall -q ntp
+			killall -q ntpd
 			service restart_ntpd
 		fi
 		sleep 10

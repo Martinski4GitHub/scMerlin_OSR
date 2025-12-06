@@ -12,7 +12,7 @@
 ## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2025-Dec-04
+# Last Modified: 2025-Dec-05
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -34,7 +34,7 @@ readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
 readonly SCM_VERSION="v2.5.46"
 readonly SCRIPT_VERSION="v2.5.46"
-readonly SCRIPT_VERSTAG="25120418"
+readonly SCRIPT_VERSTAG="25120520"
 SCRIPT_BRANCH="develop"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -158,7 +158,7 @@ GetWiFiVirtualInterfaceName()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Sep-05] ##
+## Modified by Martinski W. [2025-Dec-05] ##
 ##----------------------------------------##
 _GetWiFiBandsSupported_()
 {
@@ -174,6 +174,7 @@ _GetWiFiBandsSupported_()
        Band_5G_2_Support=true
    fi
    if [ "$ROUTER_MODEL" = "GT-BE98" ]     || \
+      [ "$ROUTER_MODEL" = "RT-BE92U" ]    || \
       [ "$ROUTER_MODEL" = "RT-BE96U" ]    || \
       [ "$ROUTER_MODEL" = "GT-BE98_PRO" ] || \
       [ "$ROUTER_MODEL" = "GT-AXE16000" ] || \

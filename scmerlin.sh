@@ -12,7 +12,7 @@
 ## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2025-Nov-03
+# Last Modified: 2025-Dec-05
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -32,10 +32,10 @@
 ### Start of script variables ###
 readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
-readonly SCM_VERSION="v2.5.45"
-readonly SCRIPT_VERSION="v2.5.45"
-readonly SCRIPT_VERSTAG="25110320"
-SCRIPT_BRANCH="master"
+readonly SCM_VERSION="v2.5.46"
+readonly SCRIPT_VERSION="v2.5.46"
+readonly SCRIPT_VERSTAG="25120520"
+SCRIPT_BRANCH="develop"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
 readonly SCRIPT_WEBPAGE_DIR="$(readlink -f /www/user)"
@@ -107,6 +107,13 @@ readonly fwInstalledBuildVers="$(nvram get buildno)"
 readonly fwInstalledBranchVer="${fwInstalledBaseVers}.$(echo "$fwInstalledBuildVers" | awk -F'.' '{print $1}')"
 
 ##-------------------------------------##
+## Added by Martinski W. [2025-Dec-04] ##
+##-------------------------------------##
+readonly CPU_Temptr_ProcDMUtemp="/proc/dmu/temperature"
+readonly CPU_Temptr_SysPowerCPU="/sys/power/bpcm/cpu_temp"
+readonly CPU_Temptr_ThermalZone="/sys/devices/virtual/thermal/thermal_zone0/temp"
+
+##-------------------------------------##
 ## Added by Martinski W. [2025-Oct-10] ##
 ##-------------------------------------##
 readonly IPv4octet_RegEx="([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])"
@@ -151,7 +158,7 @@ GetWiFiVirtualInterfaceName()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Sep-05] ##
+## Modified by Martinski W. [2025-Dec-05] ##
 ##----------------------------------------##
 _GetWiFiBandsSupported_()
 {
@@ -167,6 +174,7 @@ _GetWiFiBandsSupported_()
        Band_5G_2_Support=true
    fi
    if [ "$ROUTER_MODEL" = "GT-BE98" ]     || \
+      [ "$ROUTER_MODEL" = "RT-BE92U" ]    || \
       [ "$ROUTER_MODEL" = "RT-BE96U" ]    || \
       [ "$ROUTER_MODEL" = "GT-BE98_PRO" ] || \
       [ "$ROUTER_MODEL" = "GT-AXE16000" ] || \
@@ -309,7 +317,7 @@ GetTemperatureValue()
            else echo "[WiFi Interface '${theIFname}' is DISABLED]"
            fi
        else
-           echo "$theTemprtr" | awk -F ' ' '{print $1/2+20}'
+           echo "$theTemprtr" | awk -F' ' '{printf "%.1f\n", $1/2+20}'
        fi
    fi
 }
@@ -1872,8 +1880,8 @@ else
 		if [ "$ntpTimerSecs" -gt 0 ] && [ "$((ntpTimerSecs % 30))" -eq 0 ]
 		then
 			/usr/bin/logger -st ntpBootWatchdog "Still waiting for NTP to sync [$ntpTimerSecs secs]..."
-			killall ntp
-			killall ntpd
+			killall -q ntp
+			killall -q ntpd
 			service restart_ntpd
 		fi
 		sleep 10
@@ -2595,8 +2603,67 @@ _NTPMerlin_GetTimeServerIDfromConfig_()
     return 0
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2024-Dec-04] ##
+##-------------------------------------##
+_Get_CPU_Temptr_ProcDMUtemp_()
+{
+    local rawTemp  charPos3  cpuTemp
+    rawTemp="$(awk -F ' ' '{print $4}' "$CPU_Temptr_ProcDMUtemp")"
+
+    ## To check for a possible 3-digit value ##
+    charPos3="${rawTemp:2:1}"
+    if echo "$charPos3" | grep -qE '[0-9]'
+    then cpuTemp="${rawTemp:0:3}.0"
+    else cpuTemp="${rawTemp:0:2}.0"
+    fi
+    printf "${cpuTemp}°C\n"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Dec-04] ##
+##-------------------------------------##
+_Get_CPU_Temptr_ThermalZone_()
+{
+    local rawTemp  cpuTemp
+    rawTemp="$(cat "$CPU_Temptr_ThermalZone")"
+    cpuTemp="$((rawTemp / 1000)).$(printf "%03d" "$((rawTemp % 1000))")"
+    printf "%.1f°C\n" "$cpuTemp"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Dec-04] ##
+##-------------------------------------##
+_Get_CPU_Temptr_SysPowerCPU_()
+{
+    local rawTemp  cpuTemp
+    rawTemp="$(cat "$CPU_Temptr_SysPowerCPU")"
+    cpuTemp="$(echo "$rawTemp" | awk -F' ' '{printf $2}')"
+    printf "%.1f°C\n" "$cpuTemp"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Dec-04] ##
+##-------------------------------------##
+_Get_CPU_Temperature_()
+{
+    if [ -f "$CPU_Temptr_ProcDMUtemp" ]
+    then
+        _Get_CPU_Temptr_ProcDMUtemp_ ; return 0
+    fi
+    if [ -f "$CPU_Temptr_SysPowerCPU" ]
+    then
+        _Get_CPU_Temptr_SysPowerCPU_ ; return 0
+    fi
+    if [ -f "$CPU_Temptr_ThermalZone" ]
+    then
+        _Get_CPU_Temptr_ThermalZone_ ; return 0
+    fi
+    echo ; return 1
+}
+
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Oct-19] ##
+## Modified by Martinski W. [2024-Dec-04] ##
 ##----------------------------------------##
 MainMenu()
 {
@@ -3060,12 +3127,9 @@ MainMenu()
 			t)
 				ScriptHeader
 				printf "\n${GRNct}${BOLDUNDERLN}Temperatures${CLRct}\n\n"
-				if [ -f /sys/class/thermal/thermal_zone0/temp ]
+				if cpuTemptrCelsius="$(_Get_CPU_Temperature_)"
 				then
-					printf "CPU:\t ${GRNct}%s°C${CLRct}\n" "$(awk '{print int($1/1000)}' /sys/class/thermal/thermal_zone0/temp)"
-				elif [ -f /proc/dmu/temperature ]
-				then
-					printf "CPU:\t ${GRNct}%s${CLRct}\n" "$(cut -f2 -d':' /proc/dmu/temperature | awk '{$1=$1;print}' | sed 's/..$/°C/')"
+					printf "CPU:\t ${GRNct}%s${CLRct}\n" "$cpuTemptrCelsius"
 				else
 					printf "CPU:\t ${REDct}[N/A]${CLRct}\n"
 				fi

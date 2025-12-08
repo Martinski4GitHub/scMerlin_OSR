@@ -12,7 +12,7 @@
 ## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2025-Dec-05
+# Last Modified: 2025-Dec-07
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -32,9 +32,9 @@
 ### Start of script variables ###
 readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
-readonly SCM_VERSION="v2.5.46"
-readonly SCRIPT_VERSION="v2.5.46"
-readonly SCRIPT_VERSTAG="25120520"
+readonly SCM_VERSION="v2.5.47"
+readonly SCRIPT_VERSION="v2.5.47"
+readonly SCRIPT_VERSTAG="25120720"
 SCRIPT_BRANCH="develop"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -81,7 +81,10 @@ readonly REDct="\e[1;31m"
 readonly GRNct="\e[1;32m"
 readonly YLWct="\e[1;33m"
 readonly MGNTct="\e[1;35m"
+readonly GRAYct="\e[0;37m"
+readonly GRAYEDct="\e[0;30;47m"
 readonly BOLDUNDERLN="\e[1;4m"
+readonly menuSepStr="${BOLD}######################################################${CLRct}"
 
 ##-------------------------------------##
 ## Added by Martinski W. [2025-Feb-11] ##
@@ -2663,208 +2666,88 @@ _Get_CPU_Temperature_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Dec-04] ##
+## Modified by Martinski W. [2025-Nov-29] ##
 ##----------------------------------------##
-MainMenu()
+_HandleInvalidMenuOption_()
 {
-	local menuOption
-	local NTP_WATCHDOG_STATUS=""  NTP_READY_CHECK_STATUS=""  TAILTAINT_DNS_STATUS=""
-	isInteractiveMenuMode=true
+	[ -n "$menuOption" ] && \
+	printf "\n${REDct}INVALID input [$menuOption]${CLRct}"
+	printf "\nPlease choose a valid option.\n\n"
+}
 
-	_HandleInvalidOption_()
-	{
-		[ -n "$menuOption" ] && \
-		printf "\n${REDct}INVALID input [$menuOption]${CLRct}"
-		printf "\nPlease choose a valid option.\n\n"
-	}
+##----------------------------------------##
+## Modified by Martinski W. [2025-Nov-29] ##
+##----------------------------------------##
+_Menu_Services_()
+{
+	local menuOption  exitMenu=false  colorCT
+	local ENABLED_FTP  ENABLED_SAMBA  ENABLED_DDNS  ENABLED_NTPD
+	local ftpsTagStr  sambaTagStr  ddnsTagStr  entwareTagStr
 
-	printf "WebUI for %s is available at:\n${SETTING}%s${CLEARFORMAT}\n\n" "$SCRIPT_NAME" "$(Get_WebUI_URL)"
-
-	##---------- SERVICES ----------##
-	printf "${BOLDUNDERLN}${GRNct}Services${CLEARFORMAT}"
-	printf "${BOLD}${WARN} (selecting an option will restart the service)${CLEARFORMAT}\n"
-	printf "   1.   DNS/DHCP Server (dnsmasq)\n"
-	printf "   2.   Internet connection\n"
-	printf "   3.   Web Interface (httpd)\n"
-	printf "   4.   WiFi\n"
+	ScriptHeader
+	printf " ${BOLDUNDERLN}${GRNct}Services${CLRct}\n"
+	printf " ${BOLD}${WARN}(Selecting an option will restart the service)${CLRct}\n\n"
+	printf "   ${GRNct}1${CLRct}. DNS/DHCP Server (dnsmasq)\n"
+	printf "   ${GRNct}2${CLRct}. Internet connection\n"
+	printf "   ${GRNct}3${CLRct}. Web Interface (httpd)\n"
+	printf "   ${GRNct}4${CLRct}. WiFi\n"
 
 	ENABLED_FTP="$(nvram get enable_ftp)"
 	if ! Validate_Number "$ENABLED_FTP"
 	then ENABLED_FTP=0
 	fi
 	if [ "$ENABLED_FTP" -eq 1 ]
-	then ftpsTagStr=""
-	else ftpsTagStr="- ${REDct}[*NOT enabled*]${CLRct}"
+	then
+		colorCT="$GRNct"
+		ftpsTagStr=""
+	else
+		colorCT="$GRAYEDct"
+		ftpsTagStr="- ${REDct}[*NOT enabled*]${CLRct}"
 	fi
-	printf "   5.   FTP Server (vsftpd) ${ftpsTagStr}\n"
+	printf "   ${colorCT}5${CLRct}. FTP Server (vsftpd) ${ftpsTagStr}\n"
 
 	ENABLED_SAMBA="$(nvram get enable_samba)"
 	if ! Validate_Number "$ENABLED_SAMBA"
 	then ENABLED_SAMBA=0
 	fi
 	if [ "$ENABLED_SAMBA" -eq 1 ]
-	then sambaTagStr=""
-	else sambaTagStr="${REDct}[*NOT enabled*]${CLRct}"
+	then
+		colorCT="$GRNct"
+		sambaTagStr=""
+	else
+		colorCT="$GRAYEDct"
+		sambaTagStr="${REDct}[*NOT enabled*]${CLRct}"
 	fi
-	printf "   6.   Samba ${sambaTagStr}\n"
+	printf "   ${colorCT}6${CLRct}. Samba ${sambaTagStr}\n"
 
 	ENABLED_DDNS="$(nvram get ddns_enable_x)"
 	if ! Validate_Number "$ENABLED_DDNS"
 	then ENABLED_DDNS=0
 	fi
 	if [ "$ENABLED_DDNS" -eq 1 ]
-	then ddnsTagStr=""
-	else ddnsTagStr="${REDct}[*NOT enabled*]${CLRct}"
-	fi
-	printf "   7.   DDNS client ${ddnsTagStr}\n"
-
-	printf "   8.   Timeserver (ntpd/chronyd)\n"
-
-	##---------- OpenVPN CLIENTS ----------##
-	if _CheckFor_OpenVPN_Clients_Available_
 	then
-		printf "\n${BOLDUNDERLN}${GRNct}OpenVPN Clients${CLRct}"
-		printf " ${BOLD}${WARN}(selecting an option will restart the OpenVPN Client)${CLRct}\n"
-		vpnClientNum=1
-		while [ "$vpnClientNum" -lt 6 ]
-		do
-			vpnClientDesc="$(nvram get vpn_client"$vpnClientNum"_desc)"
-			[ -z "$vpnClientDesc" ] && vpnClientDesc="No description"
-			if _IsOpenVPN_Client_Configured_ "$vpnClientNum"
-			then
-				vpnClientDesc="($vpnClientDesc)"
-			else
-				vpnClientDesc="($vpnClientDesc) - ${REDct}[*NOT configured*]${CLRct}"
-			fi
-			printf " ovc%s.  OpenVPN Client %s ${vpnClientDesc}\n" "$vpnClientNum" "$vpnClientNum"
-			vpnClientNum="$((vpnClientNum + 1))"
-		done
+		colorCT="$GRNct"
+		ddnsTagStr=""
 	else
-		printf "\n${BOLDUNDERLN}${GRNct}OpenVPN Clients${CLRct}"
-		printf " ${BOLD}${REDct}(No OpenVPN Client configuration found)${CLRct}\n"
+		colorCT="$GRAYEDct"
+		ddnsTagStr="${REDct}[*NOT enabled*]${CLRct}"
 	fi
+	printf "   ${colorCT}7${CLRct}. DDNS client ${ddnsTagStr}\n"
 
-	##---------- OpenVPN SERVERS ----------##
-	if _CheckFor_OpenVPN_Servers_Available_
-	then
-		printf "\n${BOLDUNDERLN}${GRNct}OpenVPN Servers${CLRct}"
-		printf " ${BOLD}${WARN}(selecting an option will restart the OpenVPN Server)${CLRct}\n"
-		vpnServerNum=1
-		while [ "$vpnServerNum" -lt 3 ]
-		do
-			vpnServerDesc=""
-			if ! _IsOpenVPN_Server_Configured_ "$vpnServerNum"
-			then
-				vpnServerDesc="${REDct}[*NOT enabled*]${CLRct}"
-			fi
-			printf " ovs%s.  OpenVPN Server %s ${vpnServerDesc}\n" "$vpnServerNum" "$vpnServerNum"
-			vpnServerNum="$((vpnServerNum + 1))"
-		done
-	else
-		printf "\n${BOLDUNDERLN}${GRNct}OpenVPN Servers${CLRct}"
-		printf " ${BOLD}${REDct}(No OpenVPN Server enabled)${CLRct}\n"
-	fi
+	printf "   ${GRNct}8${CLRct}. Timeserver (ntpd/chronyd)\n"
 
-	##---------- WireGuard CLIENTS ----------##
-	if _CheckFor_WireGuard_Clients_Available_
-	then
-		printf "\n${BOLDUNDERLN}${GRNct}WireGuard Clients${CLRct}"
-		printf " ${BOLD}${WARN}(selecting an option will restart the WireGuard Client)${CLRct}\n"
-		vpnClientNum=1
-		while [ "$vpnClientNum" -lt 6 ]
-		do
-			vpnClientDesc="$(nvram get wgc"$vpnClientNum"_desc)"
-			[ -z "$vpnClientDesc" ] && vpnClientDesc="No description"
-			if _IsWireGuard_Client_Configured_ "$vpnClientNum"
-			then
-				vpnClientDesc="($vpnClientDesc)"
-			else
-				vpnClientDesc="($vpnClientDesc) - ${REDct}[*NOT configured*]${CLRct}"
-			fi
-			printf " wgc%s.  WireGuard Client %s ${vpnClientDesc}\n" "$vpnClientNum" "$vpnClientNum"
-			vpnClientNum="$((vpnClientNum + 1))"
-		done
-	elif "$WireGuard_Support"
-	then
-		printf "\n${BOLDUNDERLN}${GRNct}WireGuard Clients${CLRct}"
-		printf " ${BOLD}${REDct}(No WireGuard Client configuration found)${CLRct}\n"
-	fi
-
-	##---------- WireGuard SERVERS ----------##
-	if _CheckFor_WireGuard_Servers_Available_
-	then
-		printf "\n${BOLDUNDERLN}${GRNct}WireGuard Server${CLRct}"
-		printf " ${BOLD}${WARN}(selecting an option will restart the WireGuard Server)${CLRct}\n"
-		vpnServerNum=1  ## Currently only ONE WireGuard Server is available ##
-		vpnServerDesc=""
-		if ! _IsWireGuard_Server_Configured_ "$vpnServerNum"
-		then
-			vpnServerDesc="${REDct}[*NOT configured*]${CLRct}"
-		fi
-		printf " wgs%s.  WireGuard Server %s ${vpnServerDesc}\n" "$vpnServerNum" "$vpnServerNum"
-	elif "$WireGuard_Support"
-	then
-		printf "\n${BOLDUNDERLN}${GRNct}WireGuard Server${CLRct}"
-		printf " ${BOLD}${REDct}(No WireGuard Server configuration found)${CLRct}\n"
-	fi
-
-	##---------- ENTWARE ----------##
 	if [ -x /opt/bin/opkg ] && [ -x /opt/etc/init.d/rc.unslung ]
 	then
-		printf "\n${BOLDUNDERLN}${GRNct}Entware${CLEARFORMAT}\n"
-		printf "   et.  Restart all Entware applications\n"
-	fi
-
-	##---------- ROUTER ----------##
-	printf "\n${BOLDUNDERLN}${GRNct}Router${CLEARFORMAT}\n"
-	printf "    c.  View running processes\n"
-	printf "    m.  View RAM/memory usage\n"
-	printf "   jn.  View internal storage usage [JFFS & NVRAM]\n"
-	printf "   cr.  View cron jobs\n"
-	printf "   wu.  View WAN uptime\n"
-	printf "    t.  View router temperatures\n"
-	printf "    w.  List Addon WebUI tab to page mapping\n"
-	printf "    r.  Reboot router\n"
-
-	##---------- OTHER ----------##
-	printf "\n${BOLDUNDERLN}${GRNct}Other${CLEARFORMAT}\n"
-	if [ "$(NTP_BootWatchdog status)" = "ENABLED" ]
-	then
-		NTP_WATCHDOG_STATUS="${GRNct}ENABLED${CLRct}"
+		colorCT="$GRNct"
+		entwareTagStr=""
 	else
-		NTP_WATCHDOG_STATUS="${REDct}DISABLED${CLRct}"
+		colorCT="$GRAYEDct"
+		entwareTagStr="${REDct}[*NOT installed*]${CLRct}"
 	fi
-	printf "  ntp.  Toggle NTP boot watchdog script\n"
-	printf "        Currently: ${NTP_WATCHDOG_STATUS}\n\n"
+	printf "   ${colorCT}9${CLRct}. Entware Services ${entwareTagStr}\n"
 
-	if [ "$(NTP_ReadyCheckOption status)" = "ENABLED" ]
-	then
-		NTP_READY_CHECK_STATUS="${GRNct}ENABLED${CLRct}"
-	else
-		NTP_READY_CHECK_STATUS="${REDct}DISABLED${CLRct}"
-	fi
-	if [ "$(nvram get ntp_ready)" -eq 0 ]
-	then
-		NTP_READY_CHECK_STATUS="${NTP_READY_CHECK_STATUS} [${YLWct}*WARNING*${CLRct}: NTP is ${REDct}NOT${CLRct} synced]"
-	fi
-	printf "  nrc.  Toggle NTP Ready startup check\n"
-	printf "        Currently: ${NTP_READY_CHECK_STATUS}\n\n"
-
-	if [ "$(TailTaintDNSmasq status)" = "ENABLED" ]
-	then
-		TAILTAINT_DNS_STATUS="${GRNct}ENABLED${CLRct}"
-	else
-		TAILTAINT_DNS_STATUS="${REDct}DISABLED${CLRct}"
-	fi
-	printf "  dns.  Toggle dnsmasq tainted watchdog script\n"
-	printf "        Currently: ${TAILTAINT_DNS_STATUS}\n\n"
-	printf "    u.  Check for updates\n"
-	printf "   uf.  Update %s with latest version (force update)\n\n" "$SCRIPT_NAME"
-	printf "    e.  Exit %s\n\n" "$SCRIPT_NAME"
-	printf "    z.  Uninstall %s\n" "$SCRIPT_NAME"
-	printf "\n"
-	printf "${BOLD}######################################################${CLEARFORMAT}\n"
-	printf "\n"
+	printf "\n   ${GRNct}e${CLRct}. Return to Main Menu\n"
+	printf "\n${menuSepStr}\n\n"
 
 	while true
 	do
@@ -2969,6 +2852,118 @@ MainMenu()
 				echo ; PressEnter
 				break
 			;;
+			9)
+				printf "\n"
+				if [ -x /opt/bin/opkg ] && [ -x /opt/etc/init.d/rc.unslung ]
+				then
+					if Check_Lock menu
+					then
+						while true
+						do
+							printf "\n${BOLD}Are you sure you want to restart all Entware services? (y/n)${CLEARFORMAT}  "
+							read -r confirm
+							case "$confirm" in
+								y|Y)
+									/opt/etc/init.d/rc.unslung restart
+									break
+								;;
+								*)
+									break
+								;;
+							esac
+						done
+						Clear_Lock
+					fi
+				else
+					printf "\n${BOLD}${ERR}Invalid selection (Entware NOT installed)${CLEARFORMAT}\n\n"
+				fi
+				PressEnter
+				break
+			;;
+			e) exitMenu=true
+			   break
+			;;
+			*)
+				_HandleInvalidMenuOption_
+				PressEnter
+				break
+			;;
+		esac
+	done
+
+	"$exitMenu" && return 0
+	ScriptHeader
+	_Menu_Services_
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2025-Nov-29] ##
+##----------------------------------------##
+_Menu_OpenVPN_()
+{
+	local menuOption  exitMenu=false  colorCT  vpnNum
+	local vpnClientNum  vpnClientDesc  vpnServerNum  vpnServerDesc
+
+	ScriptHeader
+
+	##---------- OpenVPN CLIENTS ----------##
+	if _CheckFor_OpenVPN_Clients_Available_
+	then
+		printf " ${BOLDUNDERLN}${GRNct}OpenVPN Clients${CLRct}\n"
+		printf " ${BOLD}${WARN}(Selecting an option will restart the OpenVPN Client)${CLRct}\n\n"
+		vpnClientNum=1
+		while [ "$vpnClientNum" -lt 6 ]
+		do
+			vpnClientDesc="$(nvram get vpn_client"$vpnClientNum"_desc)"
+			[ -z "$vpnClientDesc" ] && vpnClientDesc="No description"
+			if _IsOpenVPN_Client_Configured_ "$vpnClientNum"
+			then
+				colorCT="$GRNct"
+				vpnClientDesc="($vpnClientDesc)"
+			else
+				colorCT="$GRAYEDct"
+				vpnClientDesc="($vpnClientDesc) - ${REDct}[*NOT configured*]${CLRct}"
+			fi
+			printf "   ${colorCT}ovc%d${CLRct}.  OpenVPN Client %d ${vpnClientDesc}\n" "$vpnClientNum" "$vpnClientNum"
+			vpnClientNum="$((vpnClientNum + 1))"
+		done
+	else
+		printf " ${BOLDUNDERLN}${GRNct}OpenVPN Clients${CLRct}"
+		printf " ${BOLD}${REDct}(No OpenVPN Client configuration found)${CLRct}\n"
+	fi
+
+	##---------- OpenVPN SERVERS ----------##
+	if _CheckFor_OpenVPN_Servers_Available_
+	then
+		printf "\n ${BOLDUNDERLN}${GRNct}OpenVPN Servers${CLRct}\n"
+		printf " ${BOLD}${WARN}(Selecting an option will restart the OpenVPN Server)${CLRct}\n\n"
+		vpnServerNum=1
+		while [ "$vpnServerNum" -lt 3 ]
+		do
+			if _IsOpenVPN_Server_Configured_ "$vpnServerNum"
+			then
+				colorCT="$GRNct"
+				vpnServerDesc=""
+			else
+				colorCT="$GRAYEDct"
+				vpnServerDesc="${REDct}[*NOT enabled*]${CLRct}"
+			fi
+			printf "   ${colorCT}ovs%d${CLRct}.  OpenVPN Server %d ${vpnServerDesc}\n" "$vpnServerNum" "$vpnServerNum"
+			vpnServerNum="$((vpnServerNum + 1))"
+		done
+	else
+		printf "\n ${BOLDUNDERLN}${GRNct}OpenVPN Servers${CLRct}"
+		printf " ${BOLD}${REDct}(No OpenVPN Server enabled)${CLRct}\n"
+	fi
+
+	printf "\n      ${GRNct}e${CLRct}. Return to Main Menu\n"
+	printf "\n${menuSepStr}\n\n"
+
+	while true
+	do
+		printf "Choose an option:  "
+		read -r menuOption
+		case "$menuOption" in
 			ovc1|ovc2|ovc3|ovc4|ovc5)
 				vpnNum="$(echo "$menuOption" | sed 's/^ovc//')"
 				if _IsOpenVPN_Client_Configured_ "$vpnNum"
@@ -2995,6 +2990,88 @@ MainMenu()
 				PressEnter
 				break
 			;;
+			e) exitMenu=true
+			   break
+			;;
+			*)
+				_HandleInvalidMenuOption_
+				PressEnter
+				break
+			;;
+		esac
+	done
+
+	"$exitMenu" && return 0
+	ScriptHeader
+	_Menu_OpenVPN_
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2025-Nov-29] ##
+##----------------------------------------##
+_Menu_WireGuard_()
+{
+	local menuOption  exitMenu=false  colorCT  vpnNum
+	local vpnClientNum  vpnClientDesc  vpnServerNum  vpnServerDesc
+
+	ScriptHeader
+
+	##---------- WireGuard CLIENTS ----------##
+	if _CheckFor_WireGuard_Clients_Available_
+	then
+		printf " ${BOLDUNDERLN}${GRNct}WireGuard Clients${CLRct}\n"
+		printf " ${BOLD}${WARN}(Selecting an option will restart the WireGuard Client)${CLRct}\n\n"
+		vpnClientNum=1
+		while [ "$vpnClientNum" -lt 6 ]
+		do
+			vpnClientDesc="$(nvram get wgc"$vpnClientNum"_desc)"
+			[ -z "$vpnClientDesc" ] && vpnClientDesc="No description"
+			if _IsWireGuard_Client_Configured_ "$vpnClientNum"
+			then
+				colorCT="$GRNct"
+				vpnClientDesc="($vpnClientDesc)"
+			else
+				colorCT="$GRAYEDct"
+				vpnClientDesc="${REDct}[*NOT configured*]${CLRct}"
+			fi
+			printf "   ${colorCT}wgc%d${CLRct}.  WireGuard Client %d ${vpnClientDesc}\n" "$vpnClientNum" "$vpnClientNum"
+			vpnClientNum="$((vpnClientNum + 1))"
+		done
+	elif "$WireGuard_Support"
+	then
+		printf " ${BOLDUNDERLN}${GRNct}WireGuard Clients${CLRct}"
+		printf " ${BOLD}${REDct}(No WireGuard Client configuration found)${CLRct}\n"
+	fi
+
+	##---------- WireGuard SERVERS ----------##
+	if _CheckFor_WireGuard_Servers_Available_
+	then
+		printf "\n ${BOLDUNDERLN}${GRNct}WireGuard Server${CLRct}\n"
+		printf " ${BOLD}${WARN}(Selecting the option will restart the WireGuard Server)${CLRct}\n\n"
+		vpnServerNum=1  ## Currently only ONE WireGuard Server is available ##
+		if _IsWireGuard_Server_Configured_ "$vpnServerNum"
+		then
+			colorCT="$GRNct"
+			vpnServerDesc=""
+		else
+			colorCT="$GRAYEDct"
+			vpnServerDesc="${REDct}[*NOT configured*]${CLRct}"
+		fi
+		printf "   ${colorCT}wgs%d${CLRct}.  WireGuard Server %d ${vpnServerDesc}\n" "$vpnServerNum" "$vpnServerNum"
+	elif "$WireGuard_Support"
+	then
+		printf "\n ${BOLDUNDERLN}${GRNct}WireGuard Server${CLRct}"
+		printf " ${BOLD}${REDct}(No WireGuard Server configuration found)${CLRct}\n"
+	fi
+
+	printf "\n      ${GRNct}e${CLRct}. Return to Main Menu\n"
+	printf "\n${menuSepStr}\n\n"
+
+	while true
+	do
+		printf "Choose an option:  "
+		read -r menuOption
+		case "$menuOption" in
 			wgc1|wgc2|wgc3|wgc4|wgc5)
 				vpnNum="$(echo "$menuOption" | sed 's/^wgc//')"
 				if _IsWireGuard_Client_Configured_ "$vpnNum"
@@ -3006,7 +3083,7 @@ MainMenu()
 				then
 					printf "\n${BOLD}${ERR}Invalid selection (WireGuard Client $vpnNum is *NOT* configured)${CLRct}\n\n"
 				else
-					_HandleInvalidOption_
+					_HandleInvalidMenuOption_
 				fi
 				PressEnter
 				break
@@ -3022,39 +3099,53 @@ MainMenu()
 				then
 					printf "\n${BOLD}${ERR}Invalid selection (WireGuard Server $vpnNum is *NOT* configured)${CLRct}\n\n"
 				else
-					_HandleInvalidOption_
+					_HandleInvalidMenuOption_
 				fi
 				PressEnter
 				break
 			;;
-			et)
-				printf "\n"
-				if [ -x /opt/bin/opkg ] && [ -x /opt/etc/init.d/rc.unslung ]
-				then
-					if Check_Lock menu
-					then
-						while true
-						do
-							printf "\n${BOLD}Are you sure you want to restart all Entware scripts? (y/n)${CLEARFORMAT}  "
-							read -r confirm
-							case "$confirm" in
-								y|Y)
-									/opt/etc/init.d/rc.unslung restart
-									break
-								;;
-								*)
-									break
-								;;
-							esac
-						done
-						Clear_Lock
-					fi
-				else
-					printf "\n${BOLD}${ERR}Invalid selection (Entware NOT installed)${CLEARFORMAT}\n\n"
-				fi
+			e) exitMenu=true
+			   break
+			;;
+			*)
+				_HandleInvalidMenuOption_
 				PressEnter
 				break
 			;;
+		esac
+	done
+
+	"$exitMenu" && return 0
+	ScriptHeader
+	_Menu_WireGuard_
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2025-Nov-29] ##
+##----------------------------------------##
+_Menu_RouterUtilities_()
+{
+	local menuOption  exitMenu=false
+	local program  cpuTemptrCelsius  theTemptrVal
+
+	ScriptHeader
+	printf " ${BOLDUNDERLN}${GRNct}Router Utilities${CLEARFORMAT}\n\n"
+	printf "    ${GRNct}c${CLRct}. View running processes\n"
+	printf "    ${GRNct}m${CLRct}. View RAM/memory usage\n"
+	printf "   ${GRNct}jn${CLRct}. View internal storage usage [JFFS & NVRAM]\n"
+	printf "   ${GRNct}cr${CLRct}. View cron jobs\n"
+	printf "   ${GRNct}wu${CLRct}. View WAN uptime\n"
+	printf "    ${GRNct}t${CLRct}. View router temperatures\n"
+	printf "    ${GRNct}w${CLRct}. List Addon WebUI tab to page mapping\n"
+	printf "   ${GRNct}rb${CLRct}. Reboot router\n\n"
+	printf "    ${GRNct}e${CLRct}. Return to Main Menu\n"
+	printf "\n${menuSepStr}\n\n"
+
+	while true
+	do
+		printf "Choose an option:  "
+		read -r menuOption
+		case "$menuOption" in
 			c)
 				printf "\n"
 				program=""
@@ -3091,7 +3182,6 @@ MainMenu()
 				}
 				"$program"
 				trap - 2
-				PressEnter
 				break
 			;;
 			m)
@@ -3181,18 +3271,18 @@ MainMenu()
 			w)
 				ScriptHeader
 				Get_Addon_Pages
-				printf "\\n"
+				printf "\n"
 				PressEnter
 				break
 			;;
-			r)
+			rb)
 				printf "\n"
 				while true
 				do
 					if [ "$ROUTER_MODEL" = "RT-AC86U" ]
 					then
-						printf "\\n${BOLD}${WARN}Remote reboots are not recommend for %s${CLEARFORMAT}" "$ROUTER_MODEL"
-						printf "\\n${BOLD}${WARN}Some %s fail to reboot correctly and require a manual power cycle${CLEARFORMAT}\\n" "$ROUTER_MODEL"
+						printf "\n${BOLD}${WARN}Remote reboots are not recommend for %s${CLEARFORMAT}" "$ROUTER_MODEL"
+						printf "\n${BOLD}${WARN}Some %s fail to reboot correctly and require a manual power cycle${CLEARFORMAT}\n" "$ROUTER_MODEL"
 					fi
 					printf "\n${BOLD}Are you sure you want to reboot? (y/n)${CLEARFORMAT}  "
 					read -r confirm
@@ -3209,6 +3299,71 @@ MainMenu()
 				PressEnter
 				break
 			;;
+			e) exitMenu=true
+			   break
+			;;
+			*)
+				_HandleInvalidMenuOption_
+				PressEnter
+				break
+			;;
+		esac
+	done
+
+	"$exitMenu" && return 0
+	ScriptHeader
+	_Menu_RouterUtilities_
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2025-Nov-29] ##
+##----------------------------------------##
+_Menu_ToggleOptions_()
+{
+	local menuOption  exitMenu=false
+	local NTP_WATCHDOG_STATUS  NTP_READY_CHECK_STATUS  TAILTAINT_DNS_STATUS
+
+	ScriptHeader
+	printf " ${BOLDUNDERLN}${GRNct}Toggle Options${CLEARFORMAT}\n\n"
+	if [ "$(NTP_BootWatchdog status)" = "ENABLED" ]
+	then
+		NTP_WATCHDOG_STATUS="${GRNct}ENABLED${CLRct}"
+	else
+		NTP_WATCHDOG_STATUS="${REDct}DISABLED${CLRct}"
+	fi
+	printf "   ${GRNct}ntp${CLRct}. Toggle NTP boot watchdog script\n"
+	printf "        Currently: ${NTP_WATCHDOG_STATUS}\n\n"
+
+	if [ "$(NTP_ReadyCheckOption status)" = "ENABLED" ]
+	then
+		NTP_READY_CHECK_STATUS="${GRNct}ENABLED${CLRct}"
+	else
+		NTP_READY_CHECK_STATUS="${REDct}DISABLED${CLRct}"
+	fi
+	if [ "$(nvram get ntp_ready)" -eq 0 ]
+	then
+		NTP_READY_CHECK_STATUS="${NTP_READY_CHECK_STATUS} [${YLWct}*WARNING*${CLRct}: NTP is ${REDct}NOT${CLRct} synced]"
+	fi
+	printf "   ${GRNct}nrc${CLRct}. Toggle NTP Ready startup check\n"
+	printf "        Currently: ${NTP_READY_CHECK_STATUS}\n\n"
+
+	if [ "$(TailTaintDNSmasq status)" = "ENABLED" ]
+	then
+		TAILTAINT_DNS_STATUS="${GRNct}ENABLED${CLRct}"
+	else
+		TAILTAINT_DNS_STATUS="${REDct}DISABLED${CLRct}"
+	fi
+	printf "   ${GRNct}dns${CLRct}. Toggle dnsmasq tainted watchdog script\n"
+	printf "        Currently: ${TAILTAINT_DNS_STATUS}\n\n"
+
+	printf "     ${GRNct}e${CLRct}. Return to Main Menu\n"
+	printf "\n${menuSepStr}\n\n"
+
+	while true
+	do
+		printf "Choose an option:  "
+		read -r menuOption
+		case "$menuOption" in
 			ntp)
 				printf "\n"
 				NTP_WATCHDOG_STATUS="$(NTP_BootWatchdog status)"
@@ -3239,29 +3394,102 @@ MainMenu()
 				fi
 				break
 			;;
+			e) exitMenu=true
+			   break
+			;;
+			*)
+				_HandleInvalidMenuOption_
+				PressEnter
+				break
+			;;
+		esac
+	done
+
+	"$exitMenu" && return 0
+	ScriptHeader
+	_Menu_ToggleOptions_
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2025-Nov-29] ##
+##----------------------------------------##
+MainMenu()
+{
+	local menuOption
+	local NTP_WATCHDOG_STATUS=""  NTP_READY_CHECK_STATUS=""  TAILTAINT_DNS_STATUS=""
+	isInteractiveMenuMode=true
+
+	printf " WebUI for %s is available at:\n" "$SCRIPT_NAME"
+	printf " ${SETTING}%s${CLEARFORMAT}\n\n" "$(Get_WebUI_URL)"
+
+	printf "  ${GRNct}sr${CLRct}. Services\n\n"
+	printf "  ${GRNct}ov${CLRct}. OpenVPN\n\n"
+	"$WireGuard_Support" && \
+	printf "  ${GRNct}wg${CLRct}. WireGuard\n\n"
+	printf "  ${GRNct}rt${CLRct}. Router Utilities\n\n"
+	printf "  ${GRNct}to${CLRct}. Toggle Options\n\n"
+	printf "   ${GRNct}u${CLRct}. Check for updates\n"
+	printf "  ${GRNct}uf${CLRct}. Update %s with latest version (force update)\n\n" "$SCRIPT_NAME"
+	printf "   ${GRNct}e${CLRct}. Exit %s\n\n" "$SCRIPT_NAME"
+	printf "   ${GRNct}z${CLRct}. Uninstall %s\n" "$SCRIPT_NAME"
+	printf "\n${menuSepStr}\n\n"
+
+	while true
+	do
+		printf "Choose an option:  "
+		read -r menuOption
+		case "$menuOption" in
+			sr)
+				_Menu_Services_
+				break
+				;;
+			ov)
+				_Menu_OpenVPN_
+				break
+				;;
+			wg)
+				if "$WireGuard_Support"
+				then
+					_Menu_WireGuard_
+				else
+					_HandleInvalidMenuOption_
+					PressEnter
+				fi
+				break
+				;;
+			rt)
+				_Menu_RouterUtilities_
+				break
+				;;
+			to)
+				_Menu_ToggleOptions_
+				break
+				;;
 			u)
 				printf "\n"
-				if Check_Lock menu; then
+				if Check_Lock menu
+				then
 					Update_Version
 					Clear_Lock
 				fi
 				PressEnter
 				break
-			;;
+				;;
 			uf)
 				printf "\n"
-				if Check_Lock menu; then
+				if Check_Lock menu
+				then
 					Update_Version force
 					Clear_Lock
 				fi
 				PressEnter
 				break
-			;;
+				;;
 			e)
 				ScriptHeader
 				printf "\n${BOLD}Thanks for using %s!${CLEARFORMAT}\n\n\n" "$SCRIPT_NAME"
 				exit 0
-			;;
+				;;
 			z)
 				printf "\n${BOLD}Are you sure you want to uninstall %s? (y/n)${CLEARFORMAT}  " "$SCRIPT_NAME"
 				read -r confirm
@@ -3274,12 +3502,12 @@ MainMenu()
 						:
 					;;
 				esac
-			;;
+				;;
 			*)
-				_HandleInvalidOption_
+				_HandleInvalidMenuOption_
 				PressEnter
 				break
-			;;
+				;;
 		esac
 	done
 

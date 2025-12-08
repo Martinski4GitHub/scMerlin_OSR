@@ -12,7 +12,7 @@
 ## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2025-Dec-07
+# Last Modified: 2025-Dec-08
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -34,7 +34,7 @@ readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
 readonly SCM_VERSION="v2.5.47"
 readonly SCRIPT_VERSION="v2.5.47"
-readonly SCRIPT_VERSTAG="25120720"
+readonly SCRIPT_VERSTAG="25120808"
 SCRIPT_BRANCH="develop"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -2897,7 +2897,7 @@ _Menu_Services_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Nov-29] ##
+## Modified by Martinski W. [2025-Dec-08] ##
 ##----------------------------------------##
 _Menu_OpenVPN_()
 {
@@ -2922,9 +2922,9 @@ _Menu_OpenVPN_()
 				vpnClientDesc="($vpnClientDesc)"
 			else
 				colorCT="$GRAYEDct"
-				vpnClientDesc="($vpnClientDesc) - ${REDct}[*NOT configured*]${CLRct}"
+				vpnClientDesc="${REDct}[*NOT configured*]${CLRct}"
 			fi
-			printf "   ${colorCT}ovc%d${CLRct}.  OpenVPN Client %d ${vpnClientDesc}\n" "$vpnClientNum" "$vpnClientNum"
+			printf "   ${colorCT}c%d${CLRct}. OpenVPN Client %d ${vpnClientDesc}\n" "$vpnClientNum" "$vpnClientNum"
 			vpnClientNum="$((vpnClientNum + 1))"
 		done
 	else
@@ -2948,7 +2948,7 @@ _Menu_OpenVPN_()
 				colorCT="$GRAYEDct"
 				vpnServerDesc="${REDct}[*NOT enabled*]${CLRct}"
 			fi
-			printf "   ${colorCT}ovs%d${CLRct}.  OpenVPN Server %d ${vpnServerDesc}\n" "$vpnServerNum" "$vpnServerNum"
+			printf "   ${colorCT}s%d${CLRct}. OpenVPN Server %d ${vpnServerDesc}\n" "$vpnServerNum" "$vpnServerNum"
 			vpnServerNum="$((vpnServerNum + 1))"
 		done
 	else
@@ -2956,7 +2956,7 @@ _Menu_OpenVPN_()
 		printf " ${BOLD}${REDct}(No OpenVPN Server enabled)${CLRct}\n"
 	fi
 
-	printf "\n      ${GRNct}e${CLRct}. Return to Main Menu\n"
+	printf "\n    ${GRNct}e${CLRct}. Return to Main Menu\n"
 	printf "\n${menuSepStr}\n\n"
 
 	while true
@@ -2964,8 +2964,8 @@ _Menu_OpenVPN_()
 		printf "Choose an option:  "
 		read -r menuOption
 		case "$menuOption" in
-			ovc1|ovc2|ovc3|ovc4|ovc5)
-				vpnNum="$(echo "$menuOption" | sed 's/^ovc//')"
+			c1|c2|c3|c4|c5)
+				vpnNum="$(echo "$menuOption" | sed 's/^c//')"
 				if _IsOpenVPN_Client_Configured_ "$vpnNum"
 				then
 					printf "\nRestarting OpenVPN Client $vpnNum ...\n"
@@ -2977,8 +2977,8 @@ _Menu_OpenVPN_()
 				PressEnter
 				break
 			;;
-			ovs1|ovs2)
-				vpnNum="$(echo "$menuOption" | sed 's/^ovs//')"
+			s1|s2)
+				vpnNum="$(echo "$menuOption" | sed 's/^s//')"
 				if _IsOpenVPN_Server_Configured_ "$vpnNum"
 				then
 					printf "\nRestarting OpenVPN Server $vpnNum ...\n"
@@ -3007,7 +3007,7 @@ _Menu_OpenVPN_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Nov-29] ##
+## Modified by Martinski W. [2025-Dec-08] ##
 ##----------------------------------------##
 _Menu_WireGuard_()
 {
@@ -3034,7 +3034,7 @@ _Menu_WireGuard_()
 				colorCT="$GRAYEDct"
 				vpnClientDesc="${REDct}[*NOT configured*]${CLRct}"
 			fi
-			printf "   ${colorCT}wgc%d${CLRct}.  WireGuard Client %d ${vpnClientDesc}\n" "$vpnClientNum" "$vpnClientNum"
+			printf "   ${colorCT}c%d${CLRct}. WireGuard Client %d ${vpnClientDesc}\n" "$vpnClientNum" "$vpnClientNum"
 			vpnClientNum="$((vpnClientNum + 1))"
 		done
 	elif "$WireGuard_Support"
@@ -3057,14 +3057,14 @@ _Menu_WireGuard_()
 			colorCT="$GRAYEDct"
 			vpnServerDesc="${REDct}[*NOT configured*]${CLRct}"
 		fi
-		printf "   ${colorCT}wgs%d${CLRct}.  WireGuard Server %d ${vpnServerDesc}\n" "$vpnServerNum" "$vpnServerNum"
+		printf "   ${colorCT}s%d${CLRct}. WireGuard Server %d ${vpnServerDesc}\n" "$vpnServerNum" "$vpnServerNum"
 	elif "$WireGuard_Support"
 	then
 		printf "\n ${BOLDUNDERLN}${GRNct}WireGuard Server${CLRct}"
 		printf " ${BOLD}${REDct}(No WireGuard Server configuration found)${CLRct}\n"
 	fi
 
-	printf "\n      ${GRNct}e${CLRct}. Return to Main Menu\n"
+	printf "\n    ${GRNct}e${CLRct}. Return to Main Menu\n"
 	printf "\n${menuSepStr}\n\n"
 
 	while true
@@ -3072,8 +3072,8 @@ _Menu_WireGuard_()
 		printf "Choose an option:  "
 		read -r menuOption
 		case "$menuOption" in
-			wgc1|wgc2|wgc3|wgc4|wgc5)
-				vpnNum="$(echo "$menuOption" | sed 's/^wgc//')"
+			c1|c2|c3|c4|c5)
+				vpnNum="$(echo "$menuOption" | sed 's/^c//')"
 				if _IsWireGuard_Client_Configured_ "$vpnNum"
 				then
 					printf "\nRestarting WireGuard Client $vpnNum ...\n"
@@ -3088,7 +3088,7 @@ _Menu_WireGuard_()
 				PressEnter
 				break
 			;;
-			wgs1)
+			s1)
 				vpnNum=1  ##Only ONE WireGuard Server available##
 				if _IsWireGuard_Server_Configured_ "$vpnNum"
 				then

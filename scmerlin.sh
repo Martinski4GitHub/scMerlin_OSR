@@ -12,7 +12,7 @@
 ## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2025-Dec-08
+# Last Modified: 2025-Dec-12
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -34,7 +34,7 @@ readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
 readonly SCM_VERSION="v2.5.47"
 readonly SCRIPT_VERSION="v2.5.47"
-readonly SCRIPT_VERSTAG="25120808"
+readonly SCRIPT_VERSTAG="25121220"
 SCRIPT_BRANCH="develop"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -3422,12 +3422,12 @@ MainMenu()
 	printf " WebUI for %s is available at:\n" "$SCRIPT_NAME"
 	printf " ${SETTING}%s${CLEARFORMAT}\n\n" "$(Get_WebUI_URL)"
 
-	printf "  ${GRNct}sr${CLRct}. Services\n\n"
-	printf "  ${GRNct}ov${CLRct}. OpenVPN\n\n"
+	printf "   ${GRNct}s${CLRct}. Services\n\n"
+	printf "   ${GRNct}o${CLRct}. OpenVPN\n\n"
 	"$WireGuard_Support" && \
-	printf "  ${GRNct}wg${CLRct}. WireGuard\n\n"
-	printf "  ${GRNct}rt${CLRct}. Router Utilities\n\n"
-	printf "  ${GRNct}to${CLRct}. Toggle Options\n\n"
+	printf "   ${GRNct}w${CLRct}. WireGuard\n\n"
+	printf "   ${GRNct}r${CLRct}. Router Utilities\n\n"
+	printf "   ${GRNct}t${CLRct}. Toggle Options\n\n"
 	printf "   ${GRNct}u${CLRct}. Check for updates\n"
 	printf "  ${GRNct}uf${CLRct}. Update %s with latest version (force update)\n\n" "$SCRIPT_NAME"
 	printf "   ${GRNct}e${CLRct}. Exit %s\n\n" "$SCRIPT_NAME"
@@ -3439,15 +3439,15 @@ MainMenu()
 		printf "Choose an option:  "
 		read -r menuOption
 		case "$menuOption" in
-			sr)
+			s)
 				_Menu_Services_
 				break
 				;;
-			ov)
+			o)
 				_Menu_OpenVPN_
 				break
 				;;
-			wg)
+			w)
 				if "$WireGuard_Support"
 				then
 					_Menu_WireGuard_
@@ -3457,11 +3457,11 @@ MainMenu()
 				fi
 				break
 				;;
-			rt)
+			r)
 				_Menu_RouterUtilities_
 				break
 				;;
-			to)
+			t)
 				_Menu_ToggleOptions_
 				break
 				;;

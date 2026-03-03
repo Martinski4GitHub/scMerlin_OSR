@@ -12,7 +12,7 @@
 ## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2026-Feb-18
+# Last Modified: 2026-Mar-03
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -46,6 +46,7 @@ readonly SHARED_WEB_DIR="$SCRIPT_WEBPAGE_DIR/shared-jy"
 readonly TEMP_MENU_TREE="/tmp/menuTree.js"
 readonly NTP_WATCHDOG_FILE="$SCRIPT_DIR/.watchdogenabled"
 readonly TAIL_TAINTED_FILE="$SCRIPT_DIR/.tailtaintdnsenabled"
+readonly WEBUI_DROPDOWN_FILE="$SCRIPT_DIR/.webui_dropdown_submenus"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jun-07] ##
@@ -1109,6 +1110,72 @@ function GenerateSiteMap(showurls)
 EOF
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2026-Mar-03] ##
+##---------------------------------------##
+WebUI_DropdownSubMenus()
+{
+
+	case "$1" in
+		enable)
+			touch "$WEBUI_DROPDOWN_FILE"
+			WebUI_DropdownSubMenus apply >/dev/null 2>&1
+		;;
+		disable)
+			rm -f "$WEBUI_DROPDOWN_FILE"
+			WebUI_DropdownSubMenus apply >/dev/null 2>&1
+		;;
+		apply)
+			# Ensure we have a working copy to edit
+			if [ ! -f /tmp/index_style.css ]; then
+				cp -fp /www/index_style.css /tmp/ 2>/dev/null
+			fi
+
+			# Remove any prior dropdown CSS rules (yours or legacy)
+			if [ -f /tmp/index_style.css ]; then
+				sed -i '/dropdown-content/d' /tmp/index_style.css
+			fi
+
+			# Base dropdown CSS (always present)
+			{
+				echo ".dropdown-content {top: 0px; left: 185px; "\
+"visibility: hidden; position: absolute; "\
+"background-color: #3a4042; min-width: 165px; "\
+"box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2); "\
+"z-index: 1000;}"
+				echo ".dropdown-content a {padding: 6px 8px; "\
+"text-decoration: none; display: block; height: 100%; "\
+"min-height: 20px; max-height: 40px; font-weight: bold; "\
+"text-shadow: 1px 1px 0px black; "\
+"font-family: Verdana, MS UI Gothic, MS P Gothic, "\
+"Microsoft Yahei UI, sans-serif; font-size: 12px; "\
+"border: 1px solid #6B7071;}"
+				echo ".dropdown-content a:hover {background-color: #77a5c6;}"
+			} >> /tmp/index_style.css
+
+			# Enabled: show on hover
+			if [ -f "$WEBUI_DROPDOWN_FILE" ]; then
+				echo ".dropdown:hover .dropdown-content "\
+"{visibility: visible;}" >> /tmp/index_style.css
+			else
+				# Disabled: prevent click-toggle from making it appear
+				echo ".dropdown-content {display: none;}" >> /tmp/index_style.css
+			fi
+
+			# Bind-mount updated CSS into WebUI
+			umount /www/index_style.css 2>/dev/null
+			mount -o bind /tmp/index_style.css /www/index_style.css
+		;;
+		status)
+			if [ -f "$WEBUI_DROPDOWN_FILE" ]; then
+				echo "ENABLED"
+			else
+				echo "DISABLED"
+			fi
+		;;
+	esac
+}
+
 ##----------------------------------------##
 ## Modified by Martinski W. [2025-May-17] ##
 ##----------------------------------------##
@@ -1445,6 +1512,7 @@ Create_Symlinks()
 	ln -s "$NTP_WATCHDOG_FILE" "$SCRIPT_WEB_DIR/watchdogenabled.htm" 2>/dev/null
 	ln -s "$NTP_READY_CHECK_CONF" "$SCRIPT_WEB_DIR/${NTP_READY_CHECK_FILE}.htm" 2>/dev/null
 	ln -s "$TAIL_TAINTED_FILE" "$SCRIPT_WEB_DIR/tailtaintdnsenabled.htm" 2>/dev/null
+	ln -s "$WEBUI_DROPDOWN_FILE" "$SCRIPT_WEB_DIR/webuidropdownenabled.htm" 2>/dev/null
 
 	if [ ! -d "$SHARED_WEB_DIR" ]; then
 		ln -s "$SHARED_DIR" "$SHARED_WEB_DIR" 2>/dev/null
@@ -1699,30 +1767,13 @@ Mount_WebUI()
 			cp -fp /www/index_style.css /tmp/
 		fi
 
-		if ! grep -q '.menu_Addons' /tmp/index_style.css ; then
-			echo ".menu_Addons { background: url(ext/shared-jy/addons.png); background-size: contain; }" >> /tmp/index_style.css
-		fi
-
-		if grep -q '.menu_Addons' /tmp/index_style.css && ! grep -q 'url(ext/shared-jy/addons.png); background-size: contain;' /tmp/index_style.css; then
-			sed -i 's/addons.png);/addons.png); background-size: contain;/' /tmp/index_style.css
-		fi
-
-		if grep -q '.dropdown-content {display: block;}' /tmp/index_style.css ; then
-			sed -i '/dropdown-content/d' /tmp/index_style.css
-		fi
-
-		if ! grep -q '.dropdown-content {visibility: visible;}' /tmp/index_style.css
-		then
-			{
-				echo ".dropdown-content {top: 0px; left: 185px; visibility: hidden; position: absolute; background-color: #3a4042; min-width: 165px; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2); z-index: 1000;}"
-				echo ".dropdown-content a {padding: 6px 8px; text-decoration: none; display: block; height: 100%; min-height: 20px; max-height: 40px; font-weight: bold; text-shadow: 1px 1px 0px black; font-family: Verdana, MS UI Gothic, MS P Gothic, Microsoft Yahei UI, sans-serif; font-size: 12px; border: 1px solid #6B7071;}"
-				echo ".dropdown-content a:hover {background-color: #77a5c6;}"
-				echo ".dropdown:hover .dropdown-content {visibility: visible;}"
-			} >> /tmp/index_style.css
-		fi
-
-		umount /www/index_style.css 2>/dev/null
-		mount -o bind /tmp/index_style.css /www/index_style.css
+		# Apply (enable/disable) WebUI dropdown sub-menus based on saved setting
+		# NOTE: This function handles:
+		# - Removing any prior dropdown CSS rules
+		# - Adding base dropdown CSS
+		# - Adding hover-to-show rule only when enabled
+		# - Bind-mounting /tmp/index_style.css to /www/index_style.css
+		WebUI_DropdownSubMenus apply
 
 		if [ ! -f "$TEMP_MENU_TREE" ]; then
 			cp -fp /www/require/modules/menuTree.js "$TEMP_MENU_TREE"
@@ -3374,6 +3425,15 @@ _Menu_ToggleOptions_()
 	printf "   ${GRNct}dns${CLRct}. Toggle dnsmasq tainted watchdog script\n"
 	printf "        Currently: ${TAILTAINT_DNS_STATUS}\n\n"
 
+	if [ "$(WebUI_DropdownSubMenus status)" = "ENABLED" ]
+	then
+		WEBUI_DROPDOWN_STATUS="${GRNct}ENABLED${CLRct}"
+	else
+		WEBUI_DROPDOWN_STATUS="${REDct}DISABLED${CLRct}"
+	fi
+	printf "   ${GRNct}wui${CLRct}. Toggle WebUI dropdown sub-menus\n"
+	printf "        Currently: ${WEBUI_DROPDOWN_STATUS}\n\n"
+
 	printf "     ${GRNct}e${CLRct}. Return to Main Menu\n"
 	printf "\n${menuSepStr}\n\n"
 
@@ -3409,6 +3469,16 @@ _Menu_ToggleOptions_()
 				then TailTaintDNSmasq disable
 				elif [ "$TAILTAINT_DNS_STATUS" = "DISABLED" ]
 				then TailTaintDNSmasq enable
+				fi
+				break
+			;;
+			wui)
+				printf "\n"
+				WEBUI_DROPDOWN_STATUS="$(WebUI_DropdownSubMenus status)"
+				if [ "$WEBUI_DROPDOWN_STATUS" = "ENABLED" ]
+				then WebUI_DropdownSubMenus disable
+				elif [ "$WEBUI_DROPDOWN_STATUS" = "DISABLED" ]
+				then WebUI_DropdownSubMenus enable
 				fi
 				break
 			;;
@@ -4005,6 +4075,11 @@ case "$1" in
 			settingstate="$(echo "$3" | sed "s/${SCRIPT_NAME_LOWER}_DNSmasqWatchdog//")";
 			settingstate="$(echo "$settingstate" | tr 'A-Z' 'a-z')"
 			TailTaintDNSmasq "$settingstate"
+		elif echo "$3" | grep -qE "^${SCRIPT_NAME_LOWER}_WebUIDropdowns"
+		then
+			settingstate="$(echo "$3" | sed "s/${SCRIPT_NAME_LOWER}_WebUIDropdowns//")";
+			settingstate="$(echo "$settingstate" | tr 'A-Z' 'a-z')"
+			WebUI_DropdownSubMenus "$settingstate"
 		elif echo "$3" | grep -qE "^${SCRIPT_NAME_LOWER}servicerestart"
 		then
 			rm -f "$SCRIPT_WEB_DIR/detect_service.js"

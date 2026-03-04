@@ -770,42 +770,14 @@ Update_Check()
 	echo "$doupdate,$localver,$serverver"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-May-17] ##
-##----------------------------------------##
-AppendTo_statejs_3004_()
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Mar-03] ##
+##------------------------------------------##
+AppendTo_statejs_Sitemap_3004_()
 {
-    cat << 'EOF'
+	cat << 'EOF'
+/*BEGIN:SCMERLIN_SITEMAP*/
 var myMenu = [];
-function AddDropdowns()
-{
-	if (myMenu.length == 0)
-	{
-		setTimeout(AddDropdowns,1000);
-		return;
-	}
-	for (var i = 0; i < myMenu.length; i++)
-	{
-		var sitemapstring = '<div class="dropdown-content">';
-		for(var i2 = 0; i2 < myMenu[i].tabs.length; i2++){
-			if(myMenu[i].tabs[i2].tabName == '__HIDE__'){
-				continue;
-			}
-		var tabname = myMenu[i].tabs[i2].tabName;
-		var taburl = myMenu[i].tabs[i2].url;
-		if(tabname == '__INHERIT__'){
-			tabname = taburl.split('.')[0];
-		}
-		if(taburl.indexOf('redirect.htm') != -1){
-			taburl = '/ext/shared-jy/redirect.htm';
-		}
-		sitemapstring += '<a href="'+taburl+'">'+tabname+'</a>';
-		}
-		document.getElementsByClassName(myMenu[i].index)[0].parentElement.parentElement.parentElement.parentElement.parentElement.innerHTML += sitemapstring;
-		document.getElementsByClassName(myMenu[i].index)[0].parentElement.parentElement.parentElement.parentElement.parentElement.classList.add('dropdown');
-	}
-}
-
 function GenerateSiteMap(showurls)
 {
 	myMenu = [];
@@ -899,16 +871,57 @@ function GenerateSiteMap(showurls)
 	return sitemapstring;
 }
 GenerateSiteMap(false);
-AddDropdowns();
+/*END:SCMERLIN_SITEMAP*/
 EOF
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2025-May-15] ##
-##---------------------------------------##
-AppendTo_statejs_3006_()
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Mar-03] ##
+##------------------------------------------##
+AppendTo_statejs_Dropdowns_3004_()
 {
-    cat << 'EOF'
+	cat << 'EOF'
+/*BEGIN:SCMERLIN_DROPDOWNS*/
+function AddDropdowns()
+{
+	if (myMenu.length == 0)
+	{
+		setTimeout(AddDropdowns,1000);
+		return;
+	}
+	for (var i = 0; i < myMenu.length; i++)
+	{
+		var sitemapstring = '<div class="dropdown-content">';
+		for(var i2 = 0; i2 < myMenu[i].tabs.length; i2++){
+			if(myMenu[i].tabs[i2].tabName == '__HIDE__'){
+				continue;
+			}
+		var tabname = myMenu[i].tabs[i2].tabName;
+		var taburl = myMenu[i].tabs[i2].url;
+		if(tabname == '__INHERIT__'){
+			tabname = taburl.split('.')[0];
+		}
+		if(taburl.indexOf('redirect.htm') != -1){
+			taburl = '/ext/shared-jy/redirect.htm';
+		}
+		sitemapstring += '<a href="'+taburl+'">'+tabname+'</a>';
+		}
+		document.getElementsByClassName(myMenu[i].index)[0].parentElement.parentElement.parentElement.parentElement.parentElement.innerHTML += sitemapstring;
+		document.getElementsByClassName(myMenu[i].index)[0].parentElement.parentElement.parentElement.parentElement.parentElement.classList.add('dropdown');
+	}
+}
+AddDropdowns();
+/*END:SCMERLIN_DROPDOWNS*/
+EOF
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Mar-03] ##
+##------------------------------------------##
+AppendTo_statejs_Sitemap_3006_()
+{
+	cat << 'EOF'
+/*BEGIN:SCMERLIN_SITEMAP*/
 function GenerateSiteMap(showurls)
 {
     myMenu = [];
@@ -974,6 +987,17 @@ function GenerateSiteMap(showurls)
     }
     return sitemapstring;
 }
+/*END:SCMERLIN_SITEMAP*/
+EOF
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Mar-03] ##
+##------------------------------------------##
+AppendTo_statejs_Dropdowns_3006_()
+{
+	cat << 'EOF'
+/*BEGIN:SCMERLIN_DROPDOWNS*/
 (function(){
   if (window._stateEnhancedInjected) return;
   window._stateEnhancedInjected = true;
@@ -1107,7 +1131,69 @@ function GenerateSiteMap(showurls)
     injectDropdowns();
   });
 })();
+/*END:SCMERLIN_DROPDOWNS*/
 EOF
+}
+
+AppendTo_statejs_3004_()
+{
+	AppendTo_statejs_Sitemap_3004_
+	if [ -f "$WEBUI_DROPDOWN_FILE" ]; then
+		AppendTo_statejs_Dropdowns_3004_
+	fi
+}
+
+AppendTo_statejs_3006_()
+{
+	AppendTo_statejs_Sitemap_3006_
+	if [ -f "$WEBUI_DROPDOWN_FILE" ]; then
+		AppendTo_statejs_Dropdowns_3006_
+	fi
+}
+
+##----------------------------------------##
+## Added by ExtremeFiretop [2026-Mar-03] ##
+##----------------------------------------##
+Patch_StateJS()
+{
+	local TMP_STATE_JS="/tmp/state.js"
+	local sitemapPage="NONE"
+
+	# Only makes sense on Merlin with /www/state.js present
+	[ -f /www/state.js ] || return 0
+
+	# Try to find the currently mounted Sitemap page (userXX.asp)
+	[ -f "$TEMP_MENU_TREE" ] && sitemapPage="$(_Check_WebGUI_Page_Exists_ "$SCRIPT_DIR/sitemap.asp")"
+
+	# Always rebuild from the *real* state.js (unmounted)
+	umount /www/state.js 2>/dev/null
+	cp -f /www/state.js "$TMP_STATE_JS" 2>/dev/null || return 1
+
+	# Inject Sitemap link into bottom bar if we know the page
+	if echo "$sitemapPage" | grep -qE "^user[0-9]+\.asp$"
+	then
+		sed -i 's~<td width=\\"335\\" id=\\"bottom_help_link\\" align=\\"left\\">~<td width=\\"335\\" id=\\"bottom_help_link\\" align=\\"left\\"><a style=\\"font-weight: bolder;text-decoration:underline;cursor:pointer;\\" href=\\"\/'"$sitemapPage"'\\" target=\\"_blank\\">Sitemap<\/a>\&nbsp\|\&nbsp~' \
+			"$TMP_STATE_JS"
+	fi
+
+	# Append scMerlin injected blocks:
+	{
+		echo '/*BEGIN:SCMERLIN_INJECT*/'
+		if [ "$fwInstalledBaseVers" = "3004" ]
+		then
+			AppendTo_statejs_Sitemap_3004_
+			[ -f "$WEBUI_DROPDOWN_FILE" ] && AppendTo_statejs_Dropdowns_3004_
+		else
+			# default to 3006 behavior
+			AppendTo_statejs_Sitemap_3006_
+			[ -f "$WEBUI_DROPDOWN_FILE" ] && AppendTo_statejs_Dropdowns_3006_
+		fi
+		echo '/*END:SCMERLIN_INJECT*/'
+	} >> "$TMP_STATE_JS"
+
+	# Re-bind into WebUI
+	mount -o bind "$TMP_STATE_JS" /www/state.js
+	return 0
 }
 
 ##---------------------------------------##
@@ -1120,10 +1206,12 @@ WebUI_DropdownSubMenus()
 		enable)
 			touch "$WEBUI_DROPDOWN_FILE"
 			WebUI_DropdownSubMenus apply >/dev/null 2>&1
+			Patch_StateJS >/dev/null 2>&1
 		;;
 		disable)
 			rm -f "$WEBUI_DROPDOWN_FILE"
 			WebUI_DropdownSubMenus apply >/dev/null 2>&1
+			Patch_StateJS >/dev/null 2>&1
 		;;
 		apply)
 			# Ensure we have a working copy to edit
@@ -1131,7 +1219,7 @@ WebUI_DropdownSubMenus()
 				cp -fp /www/index_style.css /tmp/ 2>/dev/null
 			fi
 
-			# Remove any prior dropdown CSS rules (yours or legacy)
+			# Remove any prior dropdown CSS rules
 			if [ -f /tmp/index_style.css ]; then
 				sed -i '/dropdown-content/d' /tmp/index_style.css
 			fi
@@ -1176,53 +1264,94 @@ WebUI_DropdownSubMenus()
 	esac
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-May-17] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Mar-03] ##
+##------------------------------------------##
 Upgrade_StateJS()
 {
-    local TMP_STATE_JS="/tmp/state.js"
-    [ -f "$TMP_STATE_JS" ] || return 0
+	local TMP_STATE_JS="/tmp/state.js"
+	[ -f "$TMP_STATE_JS" ] || return 0
 
-    if [ "$fwInstalledBaseVers" = "3006" ] && \
-       grep -q '^var myMenu = \[\];$' "$TMP_STATE_JS"
-    then
-        umount /www/state.js 2>/dev/null
+	#
+	# Bootstrap/migrate dropdown preference:
+	# If state.js already contains dropdowns code but the marker file doesn't exist
+	# (older versions), create the marker so updates don't "start disabled".
+	#
+	if [ ! -f "$WEBUI_DROPDOWN_FILE" ]
+	then
+		if grep -qE '^[[:space:]]*window\._scmDropdownsEnabled[[:space:]]*=[[:space:]]*1' \
+			"$TMP_STATE_JS" 2>/dev/null || \
+		   grep -qF 'BEGIN:SCMERLIN_DROPDOWNS' "$TMP_STATE_JS" 2>/dev/null || \
+		   grep -qF 'function injectDropdowns()' "$TMP_STATE_JS" 2>/dev/null || \
+		   grep -qF 'AddDropdowns();' "$TMP_STATE_JS" 2>/dev/null
+		then
+			touch "$WEBUI_DROPDOWN_FILE" 2>/dev/null
+		fi
+	fi
 
-        # Remove previous code #
-        sed -i '/^var myMenu = \[\];$/,/^AddDropdowns();$/d' "$TMP_STATE_JS"
+	# If new split markers exist, just remove & re-append based on current state.
+	if grep -q 'BEGIN:SCMERLIN_SITEMAP' "$TMP_STATE_JS" 2>/dev/null || \
+	   grep -q 'BEGIN:SCMERLIN_DROPDOWNS' "$TMP_STATE_JS" 2>/dev/null
+	then
+		umount /www/state.js 2>/dev/null
 
-        # Append new 3006 code #
-        AppendTo_statejs_3006_ >> "$TMP_STATE_JS"
+		sed -i '/\/\*BEGIN:SCMERLIN_SITEMAP\*\//,/\/\*END:SCMERLIN_SITEMAP\*\//d' \
+			"$TMP_STATE_JS"
+		sed -i '/\/\*BEGIN:SCMERLIN_DROPDOWNS\*\//,/\/\*END:SCMERLIN_DROPDOWNS\*\//d' \
+			"$TMP_STATE_JS"
 
-        mount -o bind /tmp/state.js /www/state.js
+		if [ "$fwInstalledBaseVers" = "3004" ]
+		then
+			AppendTo_statejs_3004_ >> "$TMP_STATE_JS"
+		else
+			AppendTo_statejs_3006_ >> "$TMP_STATE_JS"
+		fi
 
-    elif [ "$fwInstalledBaseVers" = "3006" ] && \
-         ! grep -q 'write them straight to cache' "$TMP_STATE_JS"
-    then
-        umount /www/state.js 2>/dev/null
+		mount -o bind "$TMP_STATE_JS" /www/state.js
+		return 0
+	fi
 
-        # Remove old block starting at GenerateSiteMap() through EOF
-        sed -i '/^function GenerateSiteMap(showurls)/,$d' "$TMP_STATE_JS"
+	# ---- Legacy upgrade paths below ----
 
-        # Reinject the 3006 specific code
-        AppendTo_statejs_3006_ >> "$TMP_STATE_JS"
+	if [ "$fwInstalledBaseVers" = "3006" ] && \
+	   grep -q '^var myMenu = \[\];$' "$TMP_STATE_JS"
+	then
+		umount /www/state.js 2>/dev/null
 
-        mount -o bind /tmp/state.js /www/state.js
+		# Remove previous code #
+		sed -i '/^var myMenu = \[\];$/,/^AddDropdowns();$/d' "$TMP_STATE_JS"
 
-    elif [ "$fwInstalledBaseVers" = "3004" ] && \
-         grep -q 'function injectDropdowns()' "$TMP_STATE_JS"
-    then
-        umount /www/state.js 2>/dev/null
+		# Append new (split-aware) 3006 code #
+		AppendTo_statejs_3006_ >> "$TMP_STATE_JS"
 
-        # Remove the 3006 code #
-        sed -i '/^function GenerateSiteMap(showurls)/,$d' "$TMP_STATE_JS"
+		mount -o bind "$TMP_STATE_JS" /www/state.js
 
-        # Append previous code #
-        AppendTo_statejs_3004_ >> "$TMP_STATE_JS"
+	elif [ "$fwInstalledBaseVers" = "3006" ] && \
+	     ! grep -q 'write them straight to cache' "$TMP_STATE_JS"
+	then
+		umount /www/state.js 2>/dev/null
 
-        mount -o bind /tmp/state.js /www/state.js
-    fi
+		# Remove old block starting at GenerateSiteMap() through EOF
+		sed -i '/^function GenerateSiteMap(showurls)/,$d' "$TMP_STATE_JS"
+
+		# Reinject the 3006 specific code
+		AppendTo_statejs_3006_ >> "$TMP_STATE_JS"
+
+		mount -o bind "$TMP_STATE_JS" /www/state.js
+
+	elif [ "$fwInstalledBaseVers" = "3004" ] && \
+	     grep -q 'function injectDropdowns()' "$TMP_STATE_JS"
+	then
+		umount /www/state.js 2>/dev/null
+
+		# Remove the 3006 code #
+		sed -i '/^function GenerateSiteMap(showurls)/,$d' "$TMP_STATE_JS"
+
+		# Append previous code #
+		AppendTo_statejs_3004_ >> "$TMP_STATE_JS"
+
+		mount -o bind "$TMP_STATE_JS" /www/state.js
+	fi
 }
 
 ##------------------------------------------##

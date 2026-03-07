@@ -88,7 +88,7 @@ function initial()
 	Get_NTPWatchdogEnabled_File();
 	Get_NTPReadyCheck_Option();
 	Get_DNSmasqWatchdogEnabled_File();
-	Get_WebUIDropdownsEnabled_File();
+	Get_WebUIModsEnabled_File();
 	update_temperatures();
 	update_wanuptime();
 	update_sysinfo();
@@ -378,27 +378,27 @@ function Get_DNSmasqWatchdogEnabled_File()
 	});
 }
 
-function Get_WebUIDropdownsEnabled_File()
+function Get_WebUIModsEnabled_File()
 {
 	$.ajax({
-		url: "/ext/scmerlin/webuidropdownenabled.htm",
+		url: "/ext/scmerlin/webuimodsenabled.htm",
 		dataType: "text",
 		cache: false,
 		error: function(){
-			document.form.scMerlin_WebUIDropdowns.value = "Disable";
-			$("#scMerlin_WebUIDropdowns_Status").text("Currently: DISABLED");
+			document.form.scMerlin_WebUIMods.value = "Disable";
+			$("#scMerlin_WebUIMods_Status").text("Currently: DISABLED");
 		},
 		success: function(){
-			document.form.scMerlin_WebUIDropdowns.value = "Enable";
-			$("#scMerlin_WebUIDropdowns_Status").text("Currently: ENABLED");
+			document.form.scMerlin_WebUIMods.value = "Enable";
+			$("#scMerlin_WebUIMods_Status").text("Currently: ENABLED");
 		}
 	});
 }
 
-function Save_WebUIDropdowns()
+function Save_WebUIMods()
 {
 	document.form.action_script.value =
-		"start_scmerlin_WebUIDropdowns" + document.form.scMerlin_WebUIDropdowns.value;
+		"start_scmerlin_WebUIMods" + document.form.scMerlin_WebUIMods.value;
 
 	document.form.action_wait.value = 4;
 
@@ -408,7 +408,7 @@ function Save_WebUIDropdowns()
 	showLoading();
 	document.form.submit();
 
-	setTimeout(Get_WebUIDropdownsEnabled_File, 4000);
+	setTimeout(Get_WebUIModsEnabled_File, 4000);
 }
 
 /**-------------------------------------**/

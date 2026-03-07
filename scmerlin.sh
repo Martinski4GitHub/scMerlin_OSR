@@ -46,7 +46,7 @@ readonly SHARED_WEB_DIR="$SCRIPT_WEBPAGE_DIR/shared-jy"
 readonly TEMP_MENU_TREE="/tmp/menuTree.js"
 readonly NTP_WATCHDOG_FILE="$SCRIPT_DIR/.watchdogenabled"
 readonly TAIL_TAINTED_FILE="$SCRIPT_DIR/.tailtaintdnsenabled"
-readonly WEBUI_DROPDOWN_FILE="$SCRIPT_DIR/.webui_dropdown_submenus"
+readonly WEBUI_MODS_FILE="$SCRIPT_DIR/.webui_modifications"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jun-07] ##
@@ -1138,7 +1138,7 @@ EOF
 AppendTo_statejs_3004_()
 {
 	AppendTo_statejs_Sitemap_3004_
-	if [ -f "$WEBUI_DROPDOWN_FILE" ]; then
+	if [ -f "$WEBUI_MODS_FILE" ]; then
 		AppendTo_statejs_Dropdowns_3004_
 	fi
 }
@@ -1146,7 +1146,7 @@ AppendTo_statejs_3004_()
 AppendTo_statejs_3006_()
 {
 	AppendTo_statejs_Sitemap_3006_
-	if [ -f "$WEBUI_DROPDOWN_FILE" ]; then
+	if [ -f "$WEBUI_MODS_FILE" ]; then
 		AppendTo_statejs_Dropdowns_3006_
 	fi
 }
@@ -1163,30 +1163,44 @@ Patch_StateJS()
 	[ -f /www/state.js ] || return 0
 
 	# Try to find the currently mounted Sitemap page (userXX.asp)
-	[ -f "$TEMP_MENU_TREE" ] && sitemapPage="$(_Check_WebGUI_Page_Exists_ "$SCRIPT_DIR/sitemap.asp")"
+	if [ -f "$TEMP_MENU_TREE" ]
+	then
+		sitemapPage="$(_Check_WebGUI_Page_Exists_ "$SCRIPT_DIR/sitemap.asp")"
+	fi
 
-	# Always rebuild from the *real* state.js (unmounted)
+	# Always rebuild from the real, unmounted state.js
 	umount /www/state.js 2>/dev/null
 	cp -f /www/state.js "$TMP_STATE_JS" 2>/dev/null || return 1
+
+	#
+	# If WebUI modifications are disabled, bind back a clean/stock state.js
+	# with NO scMerlin injections at all.
+	#
+	if [ ! -f "$WEBUI_MODS_FILE" ]
+	then
+		mount -o bind "$TMP_STATE_JS" /www/state.js
+		return 0
+	fi
 
 	# Inject Sitemap link into bottom bar if we know the page
 	if echo "$sitemapPage" | grep -qE "^user[0-9]+\.asp$"
 	then
-		sed -i 's~<td width=\\"335\\" id=\\"bottom_help_link\\" align=\\"left\\">~<td width=\\"335\\" id=\\"bottom_help_link\\" align=\\"left\\"><a style=\\"font-weight: bolder;text-decoration:underline;cursor:pointer;\\" href=\\"\/'"$sitemapPage"'\\" target=\\"_blank\\">Sitemap<\/a>\&nbsp\|\&nbsp~' \
+		sed -i \
+			's~<td width=\\"335\\" id=\\"bottom_help_link\\" align=\\"left\\">~<td width=\\"335\\" id=\\"bottom_help_link\\" align=\\"left\\"><a style=\\"font-weight: bolder;text-decoration:underline;cursor:pointer;\\" href=\\"\/'"$sitemapPage"'\\" target=\\"_blank\\">Sitemap<\/a>\&nbsp\|\&nbsp~' \
 			"$TMP_STATE_JS"
 	fi
 
-	# Append scMerlin injected blocks:
+	# Append scMerlin injected blocks
 	{
 		echo '/*BEGIN:SCMERLIN_INJECT*/'
 		if [ "$fwInstalledBaseVers" = "3004" ]
 		then
 			AppendTo_statejs_Sitemap_3004_
-			[ -f "$WEBUI_DROPDOWN_FILE" ] && AppendTo_statejs_Dropdowns_3004_
+			AppendTo_statejs_Dropdowns_3004_
 		else
-			# default to 3006 behavior
+			# Default to 3006 behavior
 			AppendTo_statejs_Sitemap_3006_
-			[ -f "$WEBUI_DROPDOWN_FILE" ] && AppendTo_statejs_Dropdowns_3006_
+			AppendTo_statejs_Dropdowns_3006_
 		fi
 		echo '/*END:SCMERLIN_INJECT*/'
 	} >> "$TMP_STATE_JS"
@@ -1199,18 +1213,19 @@ Patch_StateJS()
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2026-Mar-03] ##
 ##---------------------------------------##
-WebUI_DropdownSubMenus()
+Apply_WebUI_Modifications()
 {
-
 	case "$1" in
 		enable)
-			touch "$WEBUI_DROPDOWN_FILE"
-			WebUI_DropdownSubMenus apply >/dev/null 2>&1
+			touch "$WEBUI_MODS_FILE"
+			Apply_WebUI_Modifications apply >/dev/null 2>&1
+			Mount_WebUI >/dev/null 2>&1
 			Patch_StateJS >/dev/null 2>&1
 		;;
 		disable)
-			rm -f "$WEBUI_DROPDOWN_FILE"
-			WebUI_DropdownSubMenus apply >/dev/null 2>&1
+			rm -f "$WEBUI_MODS_FILE"
+			Apply_WebUI_Modifications apply >/dev/null 2>&1
+			Mount_WebUI >/dev/null 2>&1
 			Patch_StateJS >/dev/null 2>&1
 		;;
 		apply)
@@ -1242,7 +1257,7 @@ WebUI_DropdownSubMenus()
 			} >> /tmp/index_style.css
 
 			# Enabled: show on hover
-			if [ -f "$WEBUI_DROPDOWN_FILE" ]; then
+			if [ -f "$WEBUI_MODS_FILE" ]; then
 				echo ".dropdown:hover .dropdown-content "\
 "{visibility: visible;}" >> /tmp/index_style.css
 			else
@@ -1255,7 +1270,7 @@ WebUI_DropdownSubMenus()
 			mount -o bind /tmp/index_style.css /www/index_style.css
 		;;
 		status)
-			if [ -f "$WEBUI_DROPDOWN_FILE" ]; then
+			if [ -f "$WEBUI_MODS_FILE" ]; then
 				echo "ENABLED"
 			else
 				echo "DISABLED"
@@ -1277,7 +1292,7 @@ Upgrade_StateJS()
 	# If state.js already contains dropdowns code but the marker file doesn't exist
 	# (older versions), create the marker so updates don't "start disabled".
 	#
-	if [ ! -f "$WEBUI_DROPDOWN_FILE" ]
+	if [ ! -f "$WEBUI_MODS_FILE" ]
 	then
 		if grep -qE '^[[:space:]]*window\._scmDropdownsEnabled[[:space:]]*=[[:space:]]*1' \
 			"$TMP_STATE_JS" 2>/dev/null || \
@@ -1285,7 +1300,7 @@ Upgrade_StateJS()
 		   grep -qF 'function injectDropdowns()' "$TMP_STATE_JS" 2>/dev/null || \
 		   grep -qF 'AddDropdowns();' "$TMP_STATE_JS" 2>/dev/null
 		then
-			touch "$WEBUI_DROPDOWN_FILE" 2>/dev/null
+			touch "$WEBUI_MODS_FILE" 2>/dev/null
 		fi
 	fi
 
@@ -1641,7 +1656,7 @@ Create_Symlinks()
 	ln -s "$NTP_WATCHDOG_FILE" "$SCRIPT_WEB_DIR/watchdogenabled.htm" 2>/dev/null
 	ln -s "$NTP_READY_CHECK_CONF" "$SCRIPT_WEB_DIR/${NTP_READY_CHECK_FILE}.htm" 2>/dev/null
 	ln -s "$TAIL_TAINTED_FILE" "$SCRIPT_WEB_DIR/tailtaintdnsenabled.htm" 2>/dev/null
-	ln -s "$WEBUI_DROPDOWN_FILE" "$SCRIPT_WEB_DIR/webuidropdownenabled.htm" 2>/dev/null
+	ln -s "$WEBUI_MODS_FILE" "$SCRIPT_WEB_DIR/webuimodsenabled.htm" 2>/dev/null
 
 	if [ ! -d "$SHARED_WEB_DIR" ]; then
 		ln -s "$SHARED_DIR" "$SHARED_WEB_DIR" 2>/dev/null
@@ -1874,77 +1889,118 @@ ${ENDIN_MenuAddOnsTag}" "$TEMP_MENU_TREE"
 ##----------------------------------------##
 Mount_WebUI()
 {
-	realpage=""
+	local realpage=""  sitemapMountedPage="NONE"
+	local restartHttpd=false  sitemapAction=""
+
 	Print_Output true "Mounting WebUI tabs for $SCRIPT_NAME" "$PASS"
+
 	LOCKFILE=/tmp/addonwebui.lock
 	FD=386
 	eval exec "$FD>$LOCKFILE"
 	flock -x "$FD"
+
 	Get_WebUI_Page "$SCRIPT_DIR/scmerlin_www.asp"
 	if [ "$MyWebPage" = "NONE" ]
 	then
-		Print_Output true "**ERROR** Unable to mount $SCRIPT_NAME WebUI page, exiting" "$CRIT"
+		Print_Output true \
+			"**ERROR** Unable to mount $SCRIPT_NAME WebUI page, exiting" \
+			"$CRIT"
 		flock -u "$FD"
 		return 1
 	fi
-	cp -fp "$SCRIPT_DIR/scmerlin_www.asp" "$SCRIPT_WEBPAGE_DIR/$MyWebPage"
-	echo "$SCRIPT_NAME" > "$SCRIPT_WEBPAGE_DIR/$(echo "$MyWebPage" | cut -f1 -d'.').title"
+
+	cp -fp "$SCRIPT_DIR/scmerlin_www.asp" \
+		"$SCRIPT_WEBPAGE_DIR/$MyWebPage"
+	echo "$SCRIPT_NAME" \
+		> "$SCRIPT_WEBPAGE_DIR/$(echo "$MyWebPage" | cut -f1 -d'.').title"
 
 	if [ "$(uname -o)" = "ASUSWRT-Merlin" ]
 	then
-		if [ ! -f /tmp/index_style.css ]; then
+		if [ ! -f /tmp/index_style.css ]
+		then
 			cp -fp /www/index_style.css /tmp/
 		fi
 
-		# Apply (enable/disable) WebUI dropdown sub-menus based on saved setting
-		# NOTE: This function handles:
-		# - Removing any prior dropdown CSS rules
-		# - Adding base dropdown CSS
-		# - Adding hover-to-show rule only when enabled
-		# - Bind-mounting /tmp/index_style.css to /www/index_style.css
-		WebUI_DropdownSubMenus apply
+		# Apply CSS/menu behavior based on saved setting
+		Apply_WebUI_Modifications apply
 
-		if [ ! -f "$TEMP_MENU_TREE" ]; then
+		if [ ! -f "$TEMP_MENU_TREE" ]
+		then
 			cp -fp /www/require/modules/menuTree.js "$TEMP_MENU_TREE"
 		fi
+
+		# Always remove any existing scMerlin main page entry first
 		sed -i "\\~$MyWebPage~d" "$TEMP_MENU_TREE"
-
 		_CreateMenuAddOnsSection_
-
-		sed -i "/url: \"javascript:var helpwindow=window.open('\/ext\/shared-jy\/redirect.htm'/i {url: \"$MyWebPage\", tabName: \"$SCRIPT_NAME\"}," "$TEMP_MENU_TREE"
+		sed -i \
+			"/url: \"javascript:var helpwindow=window.open('\/ext\/shared-jy\/redirect.htm'/i {url: \"$MyWebPage\", tabName: \"$SCRIPT_NAME\"}," \
+			"$TEMP_MENU_TREE"
 		realpage="$MyWebPage"
 
-		if [ -f "$SCRIPT_DIR/sitemap.asp" ]
+		#
+		# Always clean up any previously-mounted Sitemap page and its menuTree
+		# entry first, so the current WUI toggle state fully controls it.
+		#
+		sitemapMountedPage="$(_Check_WebGUI_Page_Exists_ "$SCRIPT_DIR/sitemap.asp")"
+		if [ -n "$sitemapMountedPage" ] && \
+		   [ "$sitemapMountedPage" != "NONE" ]
+		then
+			sed -i "\\~$sitemapMountedPage~d" "$TEMP_MENU_TREE"
+			rm -f "$SCRIPT_WEBPAGE_DIR/$sitemapMountedPage" 2>/dev/null
+			rm -f "$SCRIPT_WEBPAGE_DIR/$(echo "$sitemapMountedPage" | cut -f1 -d'.').title" \
+				2>/dev/null
+			restartHttpd=true
+			sitemapAction="removed"
+		fi
+
+		#
+		# Only mount/add Sitemap when WebUI modifications are ENABLED.
+		#
+		if [ -f "$WEBUI_MODS_FILE" ] && [ -f "$SCRIPT_DIR/sitemap.asp" ]
 		then
 			Get_WebUI_Page "$SCRIPT_DIR/sitemap.asp"
 			if [ "$MyWebPage" = "NONE" ]
 			then
-				Print_Output true "**ERROR** Unable to mount $SCRIPT_NAME Sitemap page, exiting" "$CRIT"
+				Print_Output true \
+					"**ERROR** Unable to mount $SCRIPT_NAME Sitemap page, exiting" \
+					"$CRIT"
 				flock -u "$FD"
 				return 1
 			fi
-			cp -fp "$SCRIPT_DIR/sitemap.asp" "$SCRIPT_WEBPAGE_DIR/$MyWebPage"
+
+			cp -fp "$SCRIPT_DIR/sitemap.asp" \
+				"$SCRIPT_WEBPAGE_DIR/$MyWebPage"
+			echo "Sitemap" \
+				> "$SCRIPT_WEBPAGE_DIR/$(echo "$MyWebPage" | cut -f1 -d'.').title"
 			sed -i "\\~$MyWebPage~d" "$TEMP_MENU_TREE"
-			sed -i "/url: \"javascript:var helpwindow=window.open('\/ext\/shared-jy\/redirect.htm'/a {url: \"$MyWebPage\", tabName: \"Sitemap\"}," "$TEMP_MENU_TREE"
-
-			umount /www/state.js 2>/dev/null
-			cp -f /www/state.js /tmp/
-			sed -i 's~<td width=\\"335\\" id=\\"bottom_help_link\\" align=\\"left\\">~<td width=\\"335\\" id=\\"bottom_help_link\\" align=\\"left\\"><a style=\\"font-weight: bolder;text-decoration:underline;cursor:pointer;\\" href=\\"\/'"$MyWebPage"'\\" target=\\"_blank\\">Sitemap<\/a>\&nbsp\|\&nbsp~' /tmp/state.js
-
-			# Append custom code to 'state.js' file #
-			if [ "$fwInstalledBaseVers" = "3004" ]
-			then AppendTo_statejs_3004_ >> /tmp/state.js
-			else AppendTo_statejs_3006_ >> /tmp/state.js
-			fi
-
-			mount -o bind /tmp/state.js /www/state.js
+			sed -i \
+				"/url: \"javascript:var helpwindow=window.open('\/ext\/shared-jy\/redirect.htm'/a {url: \"$MyWebPage\", tabName: \"Sitemap\"}," \
+				"$TEMP_MENU_TREE"
 
 			Print_Output true "Mounted Sitemap page as $MyWebPage" "$PASS"
+			restartHttpd=true
+			sitemapAction="added"
 		fi
 
 		umount /www/require/modules/menuTree.js 2>/dev/null
 		mount -o bind "$TEMP_MENU_TREE" /www/require/modules/menuTree.js
+
+		# state.js is now fully handled here
+		Patch_StateJS
+
+		if "$restartHttpd"
+		then
+			/sbin/service restart_httpd >/dev/null 2>&1
+			if [ "$sitemapAction" = "removed" ]
+			then
+				Print_Output true "Restarted httpd after removing Sitemap page" "$PASS"
+			elif [ "$sitemapAction" = "added" ]
+			then
+				Print_Output true "Restarted httpd after adding Sitemap page" "$PASS"
+			fi
+		fi
 	fi
+
 	flock -u "$FD"
 	Print_Output true "Mounted $SCRIPT_NAME WebUI page as $realpage" "$PASS"
 }
@@ -3554,14 +3610,14 @@ _Menu_ToggleOptions_()
 	printf "   ${GRNct}dns${CLRct}. Toggle dnsmasq tainted watchdog script\n"
 	printf "        Currently: ${TAILTAINT_DNS_STATUS}\n\n"
 
-	if [ "$(WebUI_DropdownSubMenus status)" = "ENABLED" ]
+	if [ "$(Apply_WebUI_Modifications status)" = "ENABLED" ]
 	then
-		WEBUI_DROPDOWN_STATUS="${GRNct}ENABLED${CLRct}"
+		WEBUI_MODS_STATUS="${GRNct}ENABLED${CLRct}"
 	else
-		WEBUI_DROPDOWN_STATUS="${REDct}DISABLED${CLRct}"
+		WEBUI_MODS_STATUS="${REDct}DISABLED${CLRct}"
 	fi
-	printf "   ${GRNct}wui${CLRct}. Toggle WebUI dropdown sub-menus\n"
-	printf "        Currently: ${WEBUI_DROPDOWN_STATUS}\n\n"
+	printf "   ${GRNct}wui${CLRct}. Toggle WebUI modifications\n"
+	printf "        Currently: ${WEBUI_MODS_STATUS}\n\n"
 
 	printf "     ${GRNct}e${CLRct}. Return to Main Menu\n"
 	printf "\n${menuSepStr}\n\n"
@@ -3603,11 +3659,11 @@ _Menu_ToggleOptions_()
 			;;
 			wui)
 				printf "\n"
-				WEBUI_DROPDOWN_STATUS="$(WebUI_DropdownSubMenus status)"
-				if [ "$WEBUI_DROPDOWN_STATUS" = "ENABLED" ]
-				then WebUI_DropdownSubMenus disable
-				elif [ "$WEBUI_DROPDOWN_STATUS" = "DISABLED" ]
-				then WebUI_DropdownSubMenus enable
+				WEBUI_MODS_STATUS="$(Apply_WebUI_Modifications status)"
+				if [ "$WEBUI_MODS_STATUS" = "ENABLED" ]
+				then Apply_WebUI_Modifications disable
+				elif [ "$WEBUI_MODS_STATUS" = "DISABLED" ]
+				then Apply_WebUI_Modifications enable
 				fi
 				break
 			;;
@@ -4204,11 +4260,11 @@ case "$1" in
 			settingstate="$(echo "$3" | sed "s/${SCRIPT_NAME_LOWER}_DNSmasqWatchdog//")";
 			settingstate="$(echo "$settingstate" | tr 'A-Z' 'a-z')"
 			TailTaintDNSmasq "$settingstate"
-		elif echo "$3" | grep -qE "^${SCRIPT_NAME_LOWER}_WebUIDropdowns"
+		elif echo "$3" | grep -qE "^${SCRIPT_NAME_LOWER}_WebUIMods"
 		then
-			settingstate="$(echo "$3" | sed "s/${SCRIPT_NAME_LOWER}_WebUIDropdowns//")";
+			settingstate="$(echo "$3" | sed "s/${SCRIPT_NAME_LOWER}_WebUIMods//")";
 			settingstate="$(echo "$settingstate" | tr 'A-Z' 'a-z')"
-			WebUI_DropdownSubMenus "$settingstate"
+			Apply_WebUI_Modifications "$settingstate"
 		elif echo "$3" | grep -qE "^${SCRIPT_NAME_LOWER}servicerestart"
 		then
 			rm -f "$SCRIPT_WEB_DIR/detect_service.js"

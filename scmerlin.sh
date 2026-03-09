@@ -12,7 +12,7 @@
 ## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2026-Mar-03
+# Last Modified: 2026-Mar-09
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -34,7 +34,7 @@ readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
 readonly SCM_VERSION="v2.5.48"
 readonly SCRIPT_VERSION="v2.5.48"
-readonly SCRIPT_VERSTAG="26021800"
+readonly SCRIPT_VERSTAG="26030908"
 SCRIPT_BRANCH="develop"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -1211,7 +1211,7 @@ Patch_StateJS()
 }
 
 ##---------------------------------------##
-## Added by ExtremeFiretop [2026-Mar-03] ##
+## Added by ExtremeFiretop [2026-Mar-09] ##
 ##---------------------------------------##
 Apply_WebUI_Modifications()
 {
@@ -1220,26 +1220,37 @@ Apply_WebUI_Modifications()
 			touch "$WEBUI_MODS_FILE"
 			Apply_WebUI_Modifications apply >/dev/null 2>&1
 			Mount_WebUI >/dev/null 2>&1
-			Patch_StateJS >/dev/null 2>&1
 		;;
 		disable)
 			rm -f "$WEBUI_MODS_FILE"
-			Apply_WebUI_Modifications apply >/dev/null 2>&1
+
+			# Restore the real stock index_style.css
+			umount /www/index_style.css 2>/dev/null
+			rm -f /tmp/index_style.css 2>/dev/null
+
 			Mount_WebUI >/dev/null 2>&1
-			Patch_StateJS >/dev/null 2>&1
 		;;
 		apply)
-			# Ensure we have a working copy to edit
-			if [ ! -f /tmp/index_style.css ]; then
-				cp -fp /www/index_style.css /tmp/ 2>/dev/null
+			#
+			# Always start from the real stock file.
+			# If /www/index_style.css is currently bind-mounted,
+			# unmount it first so the copy below is clean.
+			#
+			umount /www/index_style.css 2>/dev/null
+
+			cp -fp /www/index_style.css /tmp/index_style.css 2>/dev/null || return 1
+
+			#
+			# If WebUI mods are disabled, keep stock CSS live and
+			# discard the temp modified copy.
+			#
+			if [ ! -f "$WEBUI_MODS_FILE" ]
+			then
+				rm -f /tmp/index_style.css 2>/dev/null
+				return 0
 			fi
 
-			# Remove any prior dropdown CSS rules
-			if [ -f /tmp/index_style.css ]; then
-				sed -i '/dropdown-content/d' /tmp/index_style.css
-			fi
-
-			# Base dropdown CSS (always present)
+			# Base dropdown CSS
 			{
 				echo ".dropdown-content {top: 0px; left: 185px; "\
 "visibility: hidden; position: absolute; "\
@@ -1254,19 +1265,10 @@ Apply_WebUI_Modifications()
 "Microsoft Yahei UI, sans-serif; font-size: 12px; "\
 "border: 1px solid #6B7071;}"
 				echo ".dropdown-content a:hover {background-color: #77a5c6;}"
+				echo ".dropdown:hover .dropdown-content {visibility: visible;}"
 			} >> /tmp/index_style.css
 
-			# Enabled: show on hover
-			if [ -f "$WEBUI_MODS_FILE" ]; then
-				echo ".dropdown:hover .dropdown-content "\
-"{visibility: visible;}" >> /tmp/index_style.css
-			else
-				# Disabled: prevent click-toggle from making it appear
-				echo ".dropdown-content {display: none;}" >> /tmp/index_style.css
-			fi
-
-			# Bind-mount updated CSS into WebUI
-			umount /www/index_style.css 2>/dev/null
+			# Bind-mount modified CSS into WebUI
 			mount -o bind /tmp/index_style.css /www/index_style.css
 		;;
 		status)

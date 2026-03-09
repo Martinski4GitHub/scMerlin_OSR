@@ -1223,34 +1223,56 @@ Apply_WebUI_Modifications()
 		;;
 		disable)
 			rm -f "$WEBUI_MODS_FILE"
-
-			# Restore the real stock index_style.css
-			umount /www/index_style.css 2>/dev/null
-			rm -f /tmp/index_style.css 2>/dev/null
-
+			Apply_WebUI_Modifications apply >/dev/null 2>&1
 			Mount_WebUI >/dev/null 2>&1
 		;;
 		apply)
-			#
-			# Always start from the real stock file.
-			# If /www/index_style.css is currently bind-mounted,
-			# unmount it first so the copy below is clean.
-			#
-			umount /www/index_style.css 2>/dev/null
+			local keepAddonsCss=false
 
-			cp -fp /www/index_style.css /tmp/index_style.css 2>/dev/null || return 1
+			# Always work from a writable temp copy if one does not exist yet
+			if [ ! -f /tmp/index_style.css ]
+			then
+				umount /www/index_style.css 2>/dev/null
+				cp -fp /www/index_style.css /tmp/index_style.css \
+					2>/dev/null || return 1
+			fi
 
-			#
-			# If WebUI mods are disabled, keep stock CSS live and
-			# discard the temp modified copy.
-			#
+			# Strip scMerlin dropdown CSS unconditionally first
+			sed -i '/\.dropdown-content/d' /tmp/index_style.css
+			sed -i '/\.dropdown:hover[[:space:]]*\.dropdown-content/d' \
+				/tmp/index_style.css
+
+			# Decide whether .menu_Addons CSS should remain
+			if [ -f "$TEMP_MENU_TREE" ] && \
+			   grep -qF 'index: "menu_Addons"' "$TEMP_MENU_TREE"
+			then
+				keepAddonsCss=true
+			fi
+
+			# If WebUI mods are disabled, do not re-add dropdown CSS
 			if [ ! -f "$WEBUI_MODS_FILE" ]
 			then
-				rm -f /tmp/index_style.css 2>/dev/null
+				if "$keepAddonsCss" && \
+				   grep -qF '.menu_Addons { background:' /tmp/index_style.css
+				then
+					umount /www/index_style.css 2>/dev/null
+					mount -o bind /tmp/index_style.css /www/index_style.css
+				else
+					rm -f /tmp/index_style.css 2>/dev/null
+					umount /www/index_style.css 2>/dev/null
+				fi
 				return 0
 			fi
 
-			# Base dropdown CSS
+			# WebUI mods enabled: ensure Addons icon CSS exists if Addons menu exists
+			if "$keepAddonsCss" && \
+			   ! grep -qF '.menu_Addons { background:' /tmp/index_style.css
+			then
+				echo ".menu_Addons { background: url(ext/shared-jy/addons.png); background-size: contain;}" \
+					>> /tmp/index_style.css
+			fi
+
+			# Re-add dropdown CSS
 			{
 				echo ".dropdown-content {top: 0px; left: 185px; "\
 "visibility: hidden; position: absolute; "\
@@ -1268,11 +1290,12 @@ Apply_WebUI_Modifications()
 				echo ".dropdown:hover .dropdown-content {visibility: visible;}"
 			} >> /tmp/index_style.css
 
-			# Bind-mount modified CSS into WebUI
+			umount /www/index_style.css 2>/dev/null
 			mount -o bind /tmp/index_style.css /www/index_style.css
 		;;
 		status)
-			if [ -f "$WEBUI_MODS_FILE" ]; then
+			if [ -f "$WEBUI_MODS_FILE" ]
+			then
 				echo "ENABLED"
 			else
 				echo "DISABLED"
@@ -3836,6 +3859,7 @@ Menu_Install()
 	fi
 
 	Create_Dirs
+	touch "$WEBUI_MODS_FILE"
 	Create_Symlinks
 	Shortcut_Script create
 	Set_Version_Custom_Settings local "$SCRIPT_VERSION"
@@ -3974,7 +3998,9 @@ Menu_Uninstall()
 	eval exec "$FD>$LOCKFILE"
 	flock -x "$FD"
 
-	local doResetWebGUI=false  doResetStyle=false
+	local doResetWebGUI=false
+	local keepAddonsCss=false
+	local restartHttpd=false
 
 	if [ -f "$SCRIPT_DIR/sitemap.asp" ]
 	then
@@ -3984,40 +4010,74 @@ Menu_Uninstall()
 		   [ -f "$TEMP_MENU_TREE" ]
 		then
 			doResetWebGUI=true
+			restartHttpd=true
 			sed -i "\\~$MyWebPage~d" "$TEMP_MENU_TREE"
 			rm -f "$SCRIPT_WEBPAGE_DIR/$MyWebPage"
+			rm -f "$SCRIPT_WEBPAGE_DIR/$(echo "$MyWebPage" | cut -f1 -d'.').title"
 		fi
 	fi
+
 	Get_WebUI_Page "$SCRIPT_DIR/scmerlin_www.asp"
 	if [ -n "$MyWebPage" ] && \
 	   [ "$MyWebPage" != "NONE" ] && \
 	   [ -f "$TEMP_MENU_TREE" ]
 	then
 		doResetWebGUI=true
+		restartHttpd=true
 		sed -i "\\~$MyWebPage~d" "$TEMP_MENU_TREE"
 		rm -f "$SCRIPT_WEBPAGE_DIR/$MyWebPage"
 		rm -f "$SCRIPT_WEBPAGE_DIR/$(echo "$MyWebPage" | cut -f1 -d'.').title"
 	fi
 
-	_FindandRemoveMenuAddOnsSection_ && doResetStyle=true
+	_FindandRemoveMenuAddOnsSection_
+
+	if [ -f "$TEMP_MENU_TREE" ] && \
+	   grep -qF 'index: "menu_Addons"' "$TEMP_MENU_TREE"
+	then
+		keepAddonsCss=true
+	fi
 
 	if "$doResetWebGUI"
 	then
 		umount /www/require/modules/menuTree.js 2>/dev/null
 		mount -o bind "$TEMP_MENU_TREE" /www/require/modules/menuTree.js
-		if "$doResetStyle" && [ -f /tmp/index_style.css ] && \
+	fi
+
+	if [ -f /tmp/index_style.css ]
+	then
+		sed -i '/\.dropdown-content/d' /tmp/index_style.css
+		sed -i '/\.dropdown:hover[[:space:]]*\.dropdown-content/d' \
+			/tmp/index_style.css
+
+		if "$keepAddonsCss" && \
 		   grep -qF '.menu_Addons { background:' /tmp/index_style.css
 		then
+			umount /www/index_style.css 2>/dev/null
+			mount -o bind /tmp/index_style.css /www/index_style.css
+			restartHttpd=true
+		else
 			rm -f /tmp/index_style.css
 			umount /www/index_style.css 2>/dev/null
+			restartHttpd=true
 		fi
-		if [ -f /tmp/state.js ] && \
-		   grep -qE 'function GenerateSiteMap|function AddDropdowns' /tmp/state.js
-		then
-			rm -f /tmp/state.js
-			umount /www/state.js 2>/dev/null
-		fi
+	else
+		umount /www/index_style.css 2>/dev/null
 	fi
+
+	if [ -f /tmp/state.js ] && \
+	   grep -qE 'function GenerateSiteMap|function AddDropdowns|function injectDropdowns|BEGIN:SCMERLIN_' /tmp/state.js
+	then
+		rm -f /tmp/state.js
+		umount /www/state.js 2>/dev/null
+		restartHttpd=true
+	fi
+
+	if "$restartHttpd"
+	then
+		/sbin/service restart_httpd >/dev/null 2>&1
+		Print_Output true "Restarted httpd after removing WebUI modifications" "$PASS"
+	fi
+
 	flock -u "$FD"
 	rm -rf "$SCRIPT_WEB_DIR" 2>/dev/null
 

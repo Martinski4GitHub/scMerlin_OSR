@@ -397,18 +397,24 @@ function Get_WebUIModsEnabled_File()
 
 function Save_WebUIMods()
 {
-	document.form.action_script.value =
-		"start_scmerlin_WebUIMods" + document.form.scMerlin_WebUIMods.value;
-
-	document.form.action_wait.value = 4;
-
 	$("#auto_refresh").prop("checked", false);
-	if (tmout != null) clearTimeout(tmout);
+
+	if (tmout != null)
+		clearTimeout(tmout);
+
+	if (typeof WaitMsgPopupBox !== 'undefined')
+		WaitMsgPopupBox.CloseMsg();
+
+	/* stop/pause recurring AJAX refreshes while httpd is being restarted */
+	window._scmPauseAjax = true;
+
+	document.form.action_script.value =
+		"start_scmerlin_WebUIMods" +
+		document.form.scMerlin_WebUIMods.value;
+	document.form.action_wait.value = 8;
 
 	showLoading();
 	document.form.submit();
-
-	setTimeout(Get_WebUIModsEnabled_File, 4000);
 }
 
 /**-------------------------------------**/

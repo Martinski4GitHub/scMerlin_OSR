@@ -12,7 +12,7 @@
 ## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2026-Mar-09
+# Last Modified: 2026-Mar-15
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -34,7 +34,7 @@ readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
 readonly SCM_VERSION="v2.5.48"
 readonly SCRIPT_VERSION="v2.5.48"
-readonly SCRIPT_VERSTAG="26030908"
+readonly SCRIPT_VERSTAG="26031509"
 SCRIPT_BRANCH="develop"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -43,6 +43,7 @@ readonly SCRIPT_WEB_DIR="$SCRIPT_WEBPAGE_DIR/$SCRIPT_NAME_LOWER"
 readonly SHARED_DIR="/jffs/addons/shared-jy"
 readonly SHARED_REPO="https://raw.githubusercontent.com/AMTM-OSR/shared-jy/master"
 readonly SHARED_WEB_DIR="$SCRIPT_WEBPAGE_DIR/shared-jy"
+readonly TMP_STATE_JS="/tmp/state.js"
 readonly TEMP_MENU_TREE="/tmp/menuTree.js"
 readonly NTP_WATCHDOG_FILE="$SCRIPT_DIR/.watchdogenabled"
 readonly TAIL_TAINTED_FILE="$SCRIPT_DIR/.tailtaintdnsenabled"
@@ -1156,25 +1157,17 @@ AppendTo_statejs_3006_()
 ##----------------------------------------##
 Patch_StateJS()
 {
-	local TMP_STATE_JS="/tmp/state.js"
 	local sitemapPage="NONE"
 
-	# Only makes sense on Merlin with /www/state.js present
 	[ -f /www/state.js ] || return 0
 
-	# Try to find the currently mounted Sitemap page (userXX.asp)
-	if [ -f "$TEMP_MENU_TREE" ]
-	then
-		sitemapPage="$(_Check_WebGUI_Page_Exists_ "$SCRIPT_DIR/sitemap.asp")"
-	fi
-
-	# Always rebuild from the real, unmounted state.js
+	# Always rebuild from the original 'state.js' file #
 	umount /www/state.js 2>/dev/null
 	cp -f /www/state.js "$TMP_STATE_JS" 2>/dev/null || return 1
 
 	#
-	# If WebUI modifications are disabled, bind back a clean/stock state.js
-	# with NO scMerlin injections at all.
+	# If WebUI modifications are DISABLED, bind mount a clean/stock
+	# state.js file WITHOUT any custom scMerlin modifications at all.
 	#
 	if [ ! -f "$WEBUI_MODS_FILE" ]
 	then
@@ -1182,7 +1175,13 @@ Patch_StateJS()
 		return 0
 	fi
 
-	# Inject Sitemap link into bottom bar if we know the page
+	# Find the currently mounted Sitemap webpage #
+	if [ -f "$TEMP_MENU_TREE" ]
+	then
+		sitemapPage="$(_Check_WebGUI_Page_Exists_ "$SCRIPT_DIR/sitemap.asp")"
+	fi
+
+	# Inject Sitemap link into bottom bar if we know the webpage #
 	if echo "$sitemapPage" | grep -qE "^user[0-9]+\.asp$"
 	then
 		sed -i \
@@ -1190,7 +1189,7 @@ Patch_StateJS()
 			"$TMP_STATE_JS"
 	fi
 
-	# Append scMerlin injected blocks
+	# Append scMerlin injected blocks #
 	{
 		echo '/*BEGIN:SCMERLIN_INJECT*/'
 		if [ "$fwInstalledBaseVers" = "3004" ]
@@ -1198,14 +1197,14 @@ Patch_StateJS()
 			AppendTo_statejs_Sitemap_3004_
 			AppendTo_statejs_Dropdowns_3004_
 		else
-			# Default to 3006 behavior
+			# For 3006 F/W behavior #
 			AppendTo_statejs_Sitemap_3006_
 			AppendTo_statejs_Dropdowns_3006_
 		fi
 		echo '/*END:SCMERLIN_INJECT*/'
 	} >> "$TMP_STATE_JS"
 
-	# Re-bind into WebUI
+	# Bind mount for WebUI #
 	mount -o bind "$TMP_STATE_JS" /www/state.js
 	return 0
 }
@@ -1213,17 +1212,17 @@ Patch_StateJS()
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2026-Mar-09] ##
 ##---------------------------------------##
-Apply_WebUI_Modifications()
+Extra_WebUI_Modifications()
 {
 	case "$1" in
 		enable)
 			touch "$WEBUI_MODS_FILE"
-			Apply_WebUI_Modifications apply >/dev/null 2>&1
+			Extra_WebUI_Modifications apply >/dev/null 2>&1
 			Mount_WebUI >/dev/null 2>&1
 		;;
 		disable)
 			rm -f "$WEBUI_MODS_FILE"
-			Apply_WebUI_Modifications apply >/dev/null 2>&1
+			Extra_WebUI_Modifications apply >/dev/null 2>&1
 			Mount_WebUI >/dev/null 2>&1
 		;;
 		apply)
@@ -1309,7 +1308,6 @@ Apply_WebUI_Modifications()
 ##------------------------------------------##
 Upgrade_StateJS()
 {
-	local TMP_STATE_JS="/tmp/state.js"
 	[ -f "$TMP_STATE_JS" ] || return 0
 
 	#
@@ -1914,7 +1912,7 @@ ${ENDIN_MenuAddOnsTag}" "$TEMP_MENU_TREE"
 ##----------------------------------------##
 Mount_WebUI()
 {
-	local realpage=""  sitemapMountedPage="NONE"
+	local mainWebPage=""  sitemapWebPage="NONE"
 	local restartHttpd=false  sitemapAction=""
 
 	Print_Output true "Mounting WebUI tabs for $SCRIPT_NAME" "$PASS"
@@ -1927,17 +1925,13 @@ Mount_WebUI()
 	Get_WebUI_Page "$SCRIPT_DIR/scmerlin_www.asp"
 	if [ "$MyWebPage" = "NONE" ]
 	then
-		Print_Output true \
-			"**ERROR** Unable to mount $SCRIPT_NAME WebUI page, exiting" \
-			"$CRIT"
+		Print_Output true "**ERROR** Unable to mount $SCRIPT_NAME WebUI page, exiting" "$CRIT"
 		flock -u "$FD"
 		return 1
 	fi
 
-	cp -fp "$SCRIPT_DIR/scmerlin_www.asp" \
-		"$SCRIPT_WEBPAGE_DIR/$MyWebPage"
-	echo "$SCRIPT_NAME" \
-		> "$SCRIPT_WEBPAGE_DIR/$(echo "$MyWebPage" | cut -f1 -d'.').title"
+	cp -fp "$SCRIPT_DIR/scmerlin_www.asp" "$SCRIPT_WEBPAGE_DIR/$MyWebPage"
+	echo "$SCRIPT_NAME" > "$SCRIPT_WEBPAGE_DIR/$(echo "$MyWebPage" | cut -f1 -d'.').title"
 
 	if [ "$(uname -o)" = "ASUSWRT-Merlin" ]
 	then
@@ -1946,57 +1940,54 @@ Mount_WebUI()
 			cp -fp /www/index_style.css /tmp/
 		fi
 
-		# Apply CSS/menu behavior based on saved setting
-		Apply_WebUI_Modifications apply
+		# Apply CSS/menu behavior based on saved setting #
+		Extra_WebUI_Modifications apply
 
 		if [ ! -f "$TEMP_MENU_TREE" ]
 		then
 			cp -fp /www/require/modules/menuTree.js "$TEMP_MENU_TREE"
 		fi
 
-		# Always remove any existing scMerlin main page entry first
+		# Remove any existing scMerlin webpage first #
 		sed -i "\\~$MyWebPage~d" "$TEMP_MENU_TREE"
+
 		_CreateMenuAddOnsSection_
+
 		sed -i \
 			"/url: \"javascript:var helpwindow=window.open('\/ext\/shared-jy\/redirect.htm'/i {url: \"$MyWebPage\", tabName: \"$SCRIPT_NAME\"}," \
 			"$TEMP_MENU_TREE"
-		realpage="$MyWebPage"
+		mainWebPage="$MyWebPage"
 
 		#
-		# Always clean up any previously-mounted Sitemap page and its menuTree
-		# entry first, so the current WUI toggle state fully controls it.
+		# Clean up any previously-mounted Sitemap webpage and its MenuTree
+		# entry, so the current state of the toggle switch fully controls it.
 		#
-		sitemapMountedPage="$(_Check_WebGUI_Page_Exists_ "$SCRIPT_DIR/sitemap.asp")"
-		if [ -n "$sitemapMountedPage" ] && \
-		   [ "$sitemapMountedPage" != "NONE" ]
+		sitemapWebPage="$(_Check_WebGUI_Page_Exists_ "$SCRIPT_DIR/sitemap.asp")"
+		if [ -n "$sitemapWebPage" ] && \
+		   [ "$sitemapWebPage" != "NONE" ]
 		then
-			sed -i "\\~$sitemapMountedPage~d" "$TEMP_MENU_TREE"
-			rm -f "$SCRIPT_WEBPAGE_DIR/$sitemapMountedPage" 2>/dev/null
-			rm -f "$SCRIPT_WEBPAGE_DIR/$(echo "$sitemapMountedPage" | cut -f1 -d'.').title" \
-				2>/dev/null
+			sed -i "\\~$sitemapWebPage~d" "$TEMP_MENU_TREE"
+			rm -f "$SCRIPT_WEBPAGE_DIR/$sitemapWebPage"
+			rm -f "$SCRIPT_WEBPAGE_DIR/$(echo "$sitemapWebPage" | cut -f1 -d'.').title"
 			restartHttpd=true
 			sitemapAction="removed"
 		fi
 
 		#
-		# Only mount/add Sitemap when WebUI modifications are ENABLED.
+		# Do bind mount if WebUI modifications are ENABLED #
 		#
-		if [ -f "$WEBUI_MODS_FILE" ] && [ -f "$SCRIPT_DIR/sitemap.asp" ]
+		if [ -f "$WEBUI_MODS_FILE" ] && \
+		   [ -f "$SCRIPT_DIR/sitemap.asp" ]
 		then
 			Get_WebUI_Page "$SCRIPT_DIR/sitemap.asp"
 			if [ "$MyWebPage" = "NONE" ]
 			then
-				Print_Output true \
-					"**ERROR** Unable to mount $SCRIPT_NAME Sitemap page, exiting" \
-					"$CRIT"
+				Print_Output true "**ERROR** Unable to mount $SCRIPT_NAME Sitemap page, exiting" "$CRIT"
 				flock -u "$FD"
 				return 1
 			fi
 
-			cp -fp "$SCRIPT_DIR/sitemap.asp" \
-				"$SCRIPT_WEBPAGE_DIR/$MyWebPage"
-			echo "Sitemap" \
-				> "$SCRIPT_WEBPAGE_DIR/$(echo "$MyWebPage" | cut -f1 -d'.').title"
+			cp -fp "$SCRIPT_DIR/sitemap.asp" "$SCRIPT_WEBPAGE_DIR/$MyWebPage"
 			sed -i "\\~$MyWebPage~d" "$TEMP_MENU_TREE"
 			sed -i \
 				"/url: \"javascript:var helpwindow=window.open('\/ext\/shared-jy\/redirect.htm'/a {url: \"$MyWebPage\", tabName: \"Sitemap\"}," \
@@ -2010,7 +2001,7 @@ Mount_WebUI()
 		umount /www/require/modules/menuTree.js 2>/dev/null
 		mount -o bind "$TEMP_MENU_TREE" /www/require/modules/menuTree.js
 
-		# state.js is now fully handled here
+		# state.js is now fully handled here #
 		Patch_StateJS
 
 		if "$restartHttpd"
@@ -2027,7 +2018,7 @@ Mount_WebUI()
 	fi
 
 	flock -u "$FD"
-	Print_Output true "Mounted $SCRIPT_NAME WebUI page as $realpage" "$PASS"
+	Print_Output true "Mounted $SCRIPT_NAME WebUI page as $mainWebPage" "$PASS"
 }
 
 ##-------------------------------------##
@@ -2240,15 +2231,18 @@ TailTaintDNSmasq()
 		enable)
 			touch "$TAIL_TAINTED_FILE"
 			"$SCRIPT_DIR/S95tailtaintdns" start >/dev/null 2>&1
-			if [ -f /jffs/scripts/services-start ]; then
+			if [ -f /jffs/scripts/services-start ]
+			then
 				STARTUPLINECOUNT=$(grep -i -c '# '"$SCRIPT_NAME - tailtaintdns" /jffs/scripts/services-start)
 				STARTUPLINECOUNTEX=$(grep -i -cx "$SCRIPT_DIR/S95tailtaintdns start >/dev/null 2>&1 & # $SCRIPT_NAME - tailtaintdns" /jffs/scripts/services-start)
 
-				if [ "$STARTUPLINECOUNT" -gt 1 ] || { [ "$STARTUPLINECOUNTEX" -eq 0 ] && [ "$STARTUPLINECOUNT" -gt 0 ]; }; then
+				if [ "$STARTUPLINECOUNT" -gt 1 ] || { [ "$STARTUPLINECOUNTEX" -eq 0 ] && [ "$STARTUPLINECOUNT" -gt 0 ]; }
+				then
 					sed -i -e '/# '"$SCRIPT_NAME - tailtaintdns"'/d' /jffs/scripts/services-start
 				fi
 
-				if [ "$STARTUPLINECOUNTEX" -eq 0 ]; then
+				if [ "$STARTUPLINECOUNTEX" -eq 0 ]
+				then
 					echo "$SCRIPT_DIR/S95tailtaintdns start >/dev/null 2>&1 & # $SCRIPT_NAME - tailtaintdns" >> /jffs/scripts/services-start
 				fi
 			else
@@ -2261,9 +2255,9 @@ TailTaintDNSmasq()
 		disable)
 			rm -f "$TAIL_TAINTED_FILE"
 			"$SCRIPT_DIR/S95tailtaintdns" stop >/dev/null 2>&1
-			if [ -f /jffs/scripts/services-start ]; then
+			if [ -f /jffs/scripts/services-start ]
+			then
 				STARTUPLINECOUNT=$(grep -i -c '# '"$SCRIPT_NAME - tailtaintdns" /jffs/scripts/services-start)
-
 				if [ "$STARTUPLINECOUNT" -gt 0 ]; then
 					sed -i -e '/# '"$SCRIPT_NAME"' - tailtaintdns/d' /jffs/scripts/services-start
 				fi
@@ -2525,7 +2519,7 @@ _InstallWanEventHook_()
 _Init_WAN_Uptime_File_()
 {
     local ifaceNum  timeSecs  seedTag  wanIFaceNum  wanIFaceFile
-    local wansMode  seeded_any=false
+    local wansMode  seededANY=false
 
     wansMode="$(nvram get wans_mode 2>/dev/null)"
 
@@ -2542,17 +2536,17 @@ _Init_WAN_Uptime_File_()
                 then
                     read -r wanIFaceNum timeSecs seedTag < "$wanIFaceFile"
                 fi
-                if [ "$wanIFaceNum" != "$ifaceNum" ] || [ -z "$timeSecs" ]
+                if [ "$ifaceNum" != "$wanIFaceNum" ] || [ -z "$timeSecs" ]
                 then
                     echo "$ifaceNum $(date +%s) SEED" > "$wanIFaceFile"
                     sleep 1
                 fi
-                seeded_any=true
+                seededANY=true
             else
                 rm -f "/tmp/wan${ifaceNum}_uptime.tmp"
             fi
         done
-        "$seeded_any" && return 0 || return 1
+        "$seededANY" && return 0 || return 1
     fi
 
     for ifaceNum in 0 1
@@ -2560,19 +2554,18 @@ _Init_WAN_Uptime_File_()
         if [ "$(nvram get "wan${ifaceNum}_primary")" = "1" ] && \
            [ "$(nvram get "wan${ifaceNum}_state_t")" = "2" ]
         then
-            wanIFaceNum=""
+            wanIFaceNum="" ; timeSecs=""
             wanIFaceFile="/tmp/wan${ifaceNum}_uptime.tmp"
             if [ -s "$wanIFaceFile" ]
             then
                 read -r wanIFaceNum timeSecs seedTag < "$wanIFaceFile"
             fi
-
-            if [ -n "$wanIFaceNum" ] && [ "$ifaceNum" = "$wanIFaceNum" ]
-            then return 0  # Already SEEDED #
+            if [ "$ifaceNum" != "$wanIFaceNum" ] || [ -z "$timeSecs" ]
+            then
+                echo "$ifaceNum $(date +%s) SEED" > "$wanIFaceFile"
+                sleep 1
             fi
-            echo "$ifaceNum $(date +%s) SEED" > "$wanIFaceFile"
-            sleep 1
-            return 0
+            return 0  # SEEDED OK #
         fi
     done
 
@@ -2669,9 +2662,8 @@ Get_WAN_Uptime()
             approx_flag=""
             if [ -z "$upsecs" ] || [ "$upsecs" -le 0 ]
             then
-                wanIFaceNum=""
+                wanIFaceNum="" ; wanup_secs="" ; seedTag=""
                 wanIFaceFile="/tmp/wan${ifaceNum}_uptime.tmp"
-                wanup_secs="" ; seedTag=""
                 if [ -s "$wanIFaceFile" ]
                 then
                     read -r wanIFaceNum wanup_secs seedTag < "$wanIFaceFile"
@@ -2682,7 +2674,7 @@ Get_WAN_Uptime()
                     now_secs="$(date +%s)"
                     if [ "$wanup_secs" -lt "$now_secs" ]
                     then
-                        upsecs="$(( now_secs - wanup_secs ))"
+                        upsecs="$((now_secs - wanup_secs))"
                         [ "$seedTag" = "SEED" ] && \
                         approx_flag=" (initial-seed)"
                     fi
@@ -2748,7 +2740,7 @@ Get_WAN_Uptime()
         then continue
         fi
 
-        wanIFaceNum=""
+        wanIFaceNum="" ; wanup_secs="" ; seedTag=""
         wanIFaceFile="/tmp/wan${ifaceNum}_uptime.tmp"
         if [ -s "$wanIFaceFile" ]
         then
@@ -2770,7 +2762,7 @@ Get_WAN_Uptime()
 
         if [ -n "$active_IFaceWAN" ] && [ "$wanup_secs" -lt "$now_secs" ]
         then
-            upsecs="$(( now_secs - wanup_secs ))"
+            upsecs="$((now_secs - wanup_secs))"
             approx_flag="$seedTag"   # will be "SEED" #
         else
             active_IFaceWAN=""
@@ -3635,13 +3627,13 @@ _Menu_ToggleOptions_()
 	printf "   ${GRNct}dns${CLRct}. Toggle dnsmasq tainted watchdog script\n"
 	printf "        Currently: ${TAILTAINT_DNS_STATUS}\n\n"
 
-	if [ "$(Apply_WebUI_Modifications status)" = "ENABLED" ]
+	if [ "$(Extra_WebUI_Modifications status)" = "ENABLED" ]
 	then
 		WEBUI_MODS_STATUS="${GRNct}ENABLED${CLRct}"
 	else
 		WEBUI_MODS_STATUS="${REDct}DISABLED${CLRct}"
 	fi
-	printf "   ${GRNct}wui${CLRct}. Toggle WebUI modifications\n"
+	printf "   ${GRNct}wui${CLRct}. Toggle additional WebUI modifications\n"
 	printf "        Currently: ${WEBUI_MODS_STATUS}\n\n"
 
 	printf "     ${GRNct}e${CLRct}. Return to Main Menu\n"
@@ -3684,11 +3676,11 @@ _Menu_ToggleOptions_()
 			;;
 			wui)
 				printf "\n"
-				WEBUI_MODS_STATUS="$(Apply_WebUI_Modifications status)"
+				WEBUI_MODS_STATUS="$(Extra_WebUI_Modifications status)"
 				if [ "$WEBUI_MODS_STATUS" = "ENABLED" ]
-				then Apply_WebUI_Modifications disable
+				then Extra_WebUI_Modifications disable
 				elif [ "$WEBUI_MODS_STATUS" = "DISABLED" ]
-				then Apply_WebUI_Modifications enable
+				then Extra_WebUI_Modifications enable
 				fi
 				break
 			;;
@@ -3859,7 +3851,6 @@ Menu_Install()
 	fi
 
 	Create_Dirs
-	touch "$WEBUI_MODS_FILE"
 	Create_Symlinks
 	Shortcut_Script create
 	Set_Version_Custom_Settings local "$SCRIPT_VERSION"
@@ -3869,6 +3860,7 @@ Menu_Install()
 	_InstallWanEventHook_ create 2>/dev/null
 	_Init_WAN_Uptime_File_
 
+	touch "$WEBUI_MODS_FILE"
 	Update_File scmerlin_www.asp
 	Update_File sitemap.asp
 	Update_File shared-jy.tar.gz
@@ -3893,6 +3885,7 @@ Menu_Install()
 ##----------------------------------------##
 Menu_Startup()
 {
+	Print_Output true "$SCRIPT_NAME $SCRIPT_VERSION starting up" "$PASS"
 	Create_Dirs
 	Create_Symlinks
 	Set_Version_Custom_Settings local "$SCRIPT_VERSION"
@@ -4064,10 +4057,10 @@ Menu_Uninstall()
 		umount /www/index_style.css 2>/dev/null
 	fi
 
-	if [ -f /tmp/state.js ] && \
-	   grep -qE 'function GenerateSiteMap|function AddDropdowns|function injectDropdowns|BEGIN:SCMERLIN_' /tmp/state.js
+	if [ -f "$TMP_STATE_JS" ] && \
+	   grep -qE 'function GenerateSiteMap|function AddDropdowns|function injectDropdowns|BEGIN:SCMERLIN_' "$TMP_STATE_JS"
 	then
-		rm -f /tmp/state.js
+		rm -f "$TMP_STATE_JS"
 		umount /www/state.js 2>/dev/null
 		restartHttpd=true
 	fi
@@ -4079,12 +4072,12 @@ Menu_Uninstall()
 	fi
 
 	flock -u "$FD"
-	rm -rf "$SCRIPT_WEB_DIR" 2>/dev/null
+	rm -fr "$SCRIPT_WEB_DIR" 2>/dev/null
 
 	"$SCRIPT_DIR/S99tailtop" stop >/dev/null 2>&1
 	sleep 5
 
-	rm -rf "$SCRIPT_DIR"
+	rm -fr "$SCRIPT_DIR"
 
 	SETTINGSFILE="/jffs/addons/custom_settings.txt"
 	sed -i '/scmerlin_version_local/d' "$SETTINGSFILE"
@@ -4326,7 +4319,7 @@ case "$1" in
 		then
 			settingstate="$(echo "$3" | sed "s/${SCRIPT_NAME_LOWER}_WebUIMods//")";
 			settingstate="$(echo "$settingstate" | tr 'A-Z' 'a-z')"
-			Apply_WebUI_Modifications "$settingstate"
+			Extra_WebUI_Modifications "$settingstate"
 		elif echo "$3" | grep -qE "^${SCRIPT_NAME_LOWER}servicerestart"
 		then
 			rm -f "$SCRIPT_WEB_DIR/detect_service.js"
@@ -4501,7 +4494,7 @@ case "$1" in
             then
                 # In load-balance, trust the event's iface ($2) #
                 # don't touch the other file #
-                wanIFaceNum="$2"    # 0 or 1
+                wanIFaceNum="$2"    # 0 or 1 #
             else
                 # Don't trust the WAN Events in Failover/primary mode #
                 # Pick active by primary flags (fallback to connected state) #
@@ -4515,7 +4508,7 @@ case "$1" in
                 then
                     wanIFaceNum="1"
                 else
-                    # Prefer the event's iface if it is actually up
+                    # Prefer the event's iface if it is actually up #
                     if [ -n "$2" ] && _InterfaceUP_ "$2"
                     then
                         wanIFaceNum="$2"
@@ -4527,8 +4520,8 @@ case "$1" in
                         wanIFaceNum="1"
                     fi
                 fi
-                # In non-LB, clear the other WAN's file to avoid stale reads
-                otherIF=$([ "$wanIFaceNum" = "0" ] && echo 1 || echo 0)
+                # In non-LB, clear the other WAN file to avoid stale reads #
+                otherIF="$([ "$wanIFaceNum" = "0" ] && echo 1 || echo 0)"
                 rm -f "/tmp/wan${otherIF}_uptime.tmp"
             fi
 
@@ -4540,12 +4533,12 @@ case "$1" in
                 read -r wanIFaceNum timeSecs < "$wanIFaceFile"
             fi
 
-            # Write only when iface is truly usable in this context
+            # Write only when iface is truly usable in this context #
             if [ -n "$wanIFaceNum" ]
             then
                 echo "$wanIFaceNum $timeSecs" > "$wanIFaceFile"
             else
-                # Neither WAN is usable; clear both
+                # Neither WAN is usable; clear both #
                 rm -f /tmp/wan0_uptime.tmp /tmp/wan1_uptime.tmp
             fi
         elif [ "$3" = "stopped" ]  || \
@@ -4554,7 +4547,7 @@ case "$1" in
         then
             # Disconnected/other events: #
             # Clean up only the iface that raised the event (safe in all modes) #
-            if [ -n "$2" ] 
+            if [ -n "$2" ]
             then
                 rm -f "/tmp/wan${2}_uptime.tmp"
             fi

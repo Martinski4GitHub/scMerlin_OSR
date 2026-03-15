@@ -1,5 +1,5 @@
 /**----------------------------**/
-/** Last Modified: 2025-Oct-21 **/
+/** Last Modified: 2026-Mar-15 **/
 /**----------------------------**/
 
 var arrayproclistlines = [];
@@ -429,6 +429,30 @@ function Save_DNSmasqWatchdog()
 	showLoading();
 	document.form.submit();
 	setTimeout(Get_DNSmasqWatchdogEnabled_File, 4000);
+}
+
+const enableWebUIModsHint = 'This option handles WebUI modifications to enable or disable the Sitemap page and the pop-up menus on the left-hand-side vertical menu bar. These changes requires logging you out of the WebUI to restart the web server.';
+
+/**-------------------------------------**/
+/** Added by Martinski W. [2026-Mar-15] **/
+/**-------------------------------------**/
+function ShowHintMsg (formField)
+{
+	let theHintMsg;
+	switch (formField.name)
+	{
+		case 'ENABLE_WEBUI_MODS':
+			theHintMsg = enableWebUIModsHint;
+			break;
+		default:
+			theHintMsg = '';
+			break;
+	}
+	if (theHintMsg.length > 0)
+	{
+		$(formField)[0].onmouseout = nd;
+		return overlib(theHintMsg,0,0);
+	}
 }
 
 /**-------------------------------------**/

@@ -88,6 +88,7 @@ function initial()
 	Get_NTPWatchdogEnabled_File();
 	Get_NTPReadyCheck_Option();
 	Get_DNSmasqWatchdogEnabled_File();
+	Get_WebUIModsEnabled_File();
 	update_temperatures();
 	update_wanuptime();
 	update_sysinfo();
@@ -375,6 +376,45 @@ function Get_DNSmasqWatchdogEnabled_File()
 			$('#scMerlin_DNSmasqWatchdog_Status').text('Currently: ENABLED');
 		}
 	});
+}
+
+function Get_WebUIModsEnabled_File()
+{
+	$.ajax({
+		url: "/ext/scmerlin/webuimodsenabled.htm",
+		dataType: "text",
+		cache: false,
+		error: function(){
+			document.form.scMerlin_WebUIMods.value = "Disable";
+			$("#scMerlin_WebUIMods_Status").text("Currently: DISABLED");
+		},
+		success: function(){
+			document.form.scMerlin_WebUIMods.value = "Enable";
+			$("#scMerlin_WebUIMods_Status").text("Currently: ENABLED");
+		}
+	});
+}
+
+function Save_WebUIMods()
+{
+	$("#auto_refresh").prop("checked", false);
+
+	if (tmout != null)
+		clearTimeout(tmout);
+
+	if (typeof WaitMsgPopupBox !== 'undefined')
+		WaitMsgPopupBox.CloseMsg();
+
+	/* stop/pause recurring AJAX refreshes while httpd is being restarted */
+	window._scmPauseAjax = true;
+
+	document.form.action_script.value =
+		"start_scmerlin_WebUIMods" +
+		document.form.scMerlin_WebUIMods.value;
+	document.form.action_wait.value = 8;
+
+	showLoading();
+	document.form.submit();
 }
 
 /**-------------------------------------**/

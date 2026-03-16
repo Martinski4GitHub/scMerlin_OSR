@@ -431,7 +431,7 @@ function Save_DNSmasqWatchdog()
 	setTimeout(Get_DNSmasqWatchdogEnabled_File, 4000);
 }
 
-const enableWebUIModsHint = 'This option handles WebUI modifications to enable or disable the Sitemap page and the pop-up menus on the left-hand-side vertical menu bar. These changes requires logging you out of the WebUI to restart the web server.';
+const enableWebUIModsHint = 'This option handles WebUI modifications to enable or disable the Sitemap page and the pop-up menus on the left-hand-side vertical menu bar. These changes require logging you out of the WebUI to restart the web server.';
 
 /**-------------------------------------**/
 /** Added by Martinski W. [2026-Mar-15] **/

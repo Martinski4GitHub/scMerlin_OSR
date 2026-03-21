@@ -12,7 +12,7 @@
 ## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2026-Mar-20
+# Last Modified: 2026-Mar-21
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -34,7 +34,7 @@ readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
 readonly SCM_VERSION="v2.5.48"
 readonly SCRIPT_VERSION="v2.5.48"
-readonly SCRIPT_VERSTAG="26032009"
+readonly SCRIPT_VERSTAG="26032101"
 SCRIPT_BRANCH="develop"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -1209,26 +1209,22 @@ Patch_StateJS()
 	return 0
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2026-Mar-09] ##
-##---------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2026-Mar-21] ##
+##----------------------------------------##
 Extra_WebUI_Modifications()
 {
 	case "$1" in
 		enable)
 			touch "$WEBUI_MODS_FILE"
-			Extra_WebUI_Modifications apply >/dev/null 2>&1
 			Mount_WebUI >/dev/null 2>&1
 		;;
 		disable)
 			rm -f "$WEBUI_MODS_FILE"
-			Extra_WebUI_Modifications apply >/dev/null 2>&1
 			Mount_WebUI >/dev/null 2>&1
 		;;
 		apply)
-			local keepAddonsCss=false
-
-			# Always work from a writable temp copy if one does not exist yet
+			# Always work from a writable temp copy if one does not exist yet #
 			if [ ! -f /tmp/index_style.css ]
 			then
 				umount /www/index_style.css 2>/dev/null
@@ -1236,42 +1232,33 @@ Extra_WebUI_Modifications()
 					2>/dev/null || return 1
 			fi
 
-			# Strip scMerlin dropdown CSS unconditionally first
+			# Strip scMerlin dropdown CSS unconditionally first #
 			sed -i '/\.dropdown-content/d' /tmp/index_style.css
 			sed -i '/\.dropdown:hover[[:space:]]*\.dropdown-content/d' \
 				/tmp/index_style.css
 
-			# Decide whether .menu_Addons CSS should remain
-			if [ -f "$TEMP_MENU_TREE" ] && \
-			   grep -qF 'index: "menu_Addons"' "$TEMP_MENU_TREE"
-			then
-				keepAddonsCss=true
-			fi
-
-			# If WebUI mods are disabled, do not re-add dropdown CSS
+			# If WebUI mods are DISABLED, do NOT re-add dropdown CSS #
 			if [ ! -f "$WEBUI_MODS_FILE" ]
 			then
-				if "$keepAddonsCss" && \
-				   grep -qF '.menu_Addons { background:' /tmp/index_style.css
+				umount /www/index_style.css 2>/dev/null
+
+				if grep -qF '.menu_Addons { background:' /tmp/index_style.css
 				then
-					umount /www/index_style.css 2>/dev/null
 					mount -o bind /tmp/index_style.css /www/index_style.css
 				else
 					rm -f /tmp/index_style.css 2>/dev/null
-					umount /www/index_style.css 2>/dev/null
 				fi
 				return 0
 			fi
 
-			# WebUI mods enabled: ensure Addons icon CSS exists if Addons menu exists
-			if "$keepAddonsCss" && \
-			   ! grep -qF '.menu_Addons { background:' /tmp/index_style.css
+			# Ensure the required menu 'Addons' icon exists at this point #
+			if ! grep -qF '.menu_Addons { background:' /tmp/index_style.css
 			then
 				echo ".menu_Addons { background: url(ext/shared-jy/addons.png); background-size: contain;}" \
 					>> /tmp/index_style.css
 			fi
 
-			# Re-add dropdown CSS
+			# Re-add dropdown CSS #
 			{
 				echo ".dropdown-content {top: 0px; left: 185px; "\
 "visibility: hidden; position: absolute; "\
@@ -1908,7 +1895,7 @@ ${ENDIN_MenuAddOnsTag}" "$TEMP_MENU_TREE"
 
 ### locking mechanism code credit to Martineau (@MartineauUK) ###
 ##----------------------------------------##
-## Modified by Martinski W. [2025-May-17] ##
+## Modified by Martinski W. [2026-Mar-21] ##
 ##----------------------------------------##
 Mount_WebUI()
 {
@@ -1938,6 +1925,12 @@ Mount_WebUI()
 		if [ ! -f /tmp/index_style.css ]
 		then
 			cp -fp /www/index_style.css /tmp/
+		fi
+
+		# The menu 'Addons' icon must exist when mounting the WebUI #
+		if ! grep -qF '.menu_Addons { background:' /tmp/index_style.css
+		then
+			echo ".menu_Addons { background: url(ext/shared-jy/addons.png); }" >> /tmp/index_style.css
 		fi
 
 		if [ ! -f "$TEMP_MENU_TREE" ]
@@ -1995,9 +1988,9 @@ Mount_WebUI()
 			sitemapAction="added"
 		fi
 
-		# Apply CSS/menu behavior based on saved setting #
-		# only AFTER TEMP_MENU_TREE reflects the final menu state. #
-		# This ensures the Addons icon CSS is added on cold boot/reboot as well. #
+		# Apply CSS/menu behavior based on saved setting, but ONLY #
+		# *AFTER* "TEMP_MENU_TREE" reflects the final menu state. #
+		# This ensures proper initialization on cold boots/reboots. #
 		Extra_WebUI_Modifications apply
 
 		umount /www/require/modules/menuTree.js 2>/dev/null
@@ -3974,9 +3967,9 @@ _FindandRemoveMenuAddOnsSection_()
    return "$retCode"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Jul-22] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2026-Mar-21] ##
+##----------------------------------------##
 Menu_Uninstall()
 {
 	Print_Output true "Removing $SCRIPT_NAME..." "$PASS"
@@ -3994,7 +3987,7 @@ Menu_Uninstall()
 	flock -x "$FD"
 
 	local doResetWebGUI=false
-	local keepAddonsCss=false
+	local keepAddonsCSS=false
 	local restartHttpd=false
 
 	if [ -f "$SCRIPT_DIR/sitemap.asp" ]
@@ -4029,7 +4022,7 @@ Menu_Uninstall()
 	if [ -f "$TEMP_MENU_TREE" ] && \
 	   grep -qF 'index: "menu_Addons"' "$TEMP_MENU_TREE"
 	then
-		keepAddonsCss=true
+		keepAddonsCSS=true
 	fi
 
 	if "$doResetWebGUI"
@@ -4044,17 +4037,16 @@ Menu_Uninstall()
 		sed -i '/\.dropdown:hover[[:space:]]*\.dropdown-content/d' \
 			/tmp/index_style.css
 
-		if "$keepAddonsCss" && \
+		umount /www/index_style.css 2>/dev/null
+
+		if "$keepAddonsCSS" && \
 		   grep -qF '.menu_Addons { background:' /tmp/index_style.css
 		then
-			umount /www/index_style.css 2>/dev/null
 			mount -o bind /tmp/index_style.css /www/index_style.css
-			restartHttpd=true
 		else
 			rm -f /tmp/index_style.css
-			umount /www/index_style.css 2>/dev/null
-			restartHttpd=true
 		fi
+		restartHttpd=true
 	else
 		umount /www/index_style.css 2>/dev/null
 	fi

@@ -12,7 +12,7 @@
 ## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2026-Mar-15
+# Last Modified: 2026-Mar-20
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -34,7 +34,7 @@ readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
 readonly SCM_VERSION="v2.5.48"
 readonly SCRIPT_VERSION="v2.5.48"
-readonly SCRIPT_VERSTAG="26031520"
+readonly SCRIPT_VERSTAG="26032009"
 SCRIPT_BRANCH="develop"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -1940,9 +1940,6 @@ Mount_WebUI()
 			cp -fp /www/index_style.css /tmp/
 		fi
 
-		# Apply CSS/menu behavior based on saved setting #
-		Extra_WebUI_Modifications apply
-
 		if [ ! -f "$TEMP_MENU_TREE" ]
 		then
 			cp -fp /www/require/modules/menuTree.js "$TEMP_MENU_TREE"
@@ -1997,6 +1994,11 @@ Mount_WebUI()
 			restartHttpd=true
 			sitemapAction="added"
 		fi
+
+		# Apply CSS/menu behavior based on saved setting #
+		# only AFTER TEMP_MENU_TREE reflects the final menu state. #
+		# This ensures the Addons icon CSS is added on cold boot/reboot as well. #
+		Extra_WebUI_Modifications apply
 
 		umount /www/require/modules/menuTree.js 2>/dev/null
 		mount -o bind "$TEMP_MENU_TREE" /www/require/modules/menuTree.js

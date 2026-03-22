@@ -1,5 +1,5 @@
 /**----------------------------**/
-/** Last Modified: 2025-Oct-21 **/
+/** Last Modified: 2026-Mar-15 **/
 /**----------------------------**/
 
 var arrayproclistlines = [];
@@ -88,6 +88,7 @@ function initial()
 	Get_NTPWatchdogEnabled_File();
 	Get_NTPReadyCheck_Option();
 	Get_DNSmasqWatchdogEnabled_File();
+	Get_WebUIModsEnabled_File();
 	update_temperatures();
 	update_wanuptime();
 	update_sysinfo();
@@ -377,6 +378,45 @@ function Get_DNSmasqWatchdogEnabled_File()
 	});
 }
 
+function Get_WebUIModsEnabled_File()
+{
+	$.ajax({
+		url: "/ext/scmerlin/webuimodsenabled.htm",
+		dataType: "text",
+		cache: false,
+		error: function(){
+			document.form.scMerlin_WebUIMods.value = "Disable";
+			$("#scMerlin_WebUIMods_Status").text("Currently: DISABLED");
+		},
+		success: function(){
+			document.form.scMerlin_WebUIMods.value = "Enable";
+			$("#scMerlin_WebUIMods_Status").text("Currently: ENABLED");
+		}
+	});
+}
+
+function Save_WebUIMods()
+{
+	$("#auto_refresh").prop("checked", false);
+
+	if (tmout != null)
+		clearTimeout(tmout);
+
+	if (typeof WaitMsgPopupBox !== 'undefined')
+		WaitMsgPopupBox.CloseMsg();
+
+	/* stop/pause recurring AJAX refreshes while httpd is being restarted */
+	window._scmPauseAjax = true;
+
+	document.form.action_script.value =
+		"start_scmerlin_WebUIMods" +
+		document.form.scMerlin_WebUIMods.value;
+	document.form.action_wait.value = 8;
+
+	showLoading();
+	document.form.submit();
+}
+
 /**-------------------------------------**/
 /** Added by Martinski W. [2024-Apr-29] **/
 /**-------------------------------------**/
@@ -389,6 +429,30 @@ function Save_DNSmasqWatchdog()
 	showLoading();
 	document.form.submit();
 	setTimeout(Get_DNSmasqWatchdogEnabled_File, 4000);
+}
+
+const enableWebUIModsHint = 'This option handles WebUI modifications to enable or disable the Sitemap page and the pop-up menus on the left-hand-side vertical menu bar. These changes require logging you out of the WebUI to restart the web server.';
+
+/**-------------------------------------**/
+/** Added by Martinski W. [2026-Mar-15] **/
+/**-------------------------------------**/
+function ShowHintMsg (formField)
+{
+	let theHintMsg;
+	switch (formField.name)
+	{
+		case 'ENABLE_WEBUI_MODS':
+			theHintMsg = enableWebUIModsHint;
+			break;
+		default:
+			theHintMsg = '';
+			break;
+	}
+	if (theHintMsg.length > 0)
+	{
+		$(formField)[0].onmouseout = nd;
+		return overlib(theHintMsg,0,0);
+	}
 }
 
 /**-------------------------------------**/

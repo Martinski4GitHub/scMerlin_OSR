@@ -12,7 +12,7 @@
 ## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2025-Dec-12
+# Last Modified: 2026-Mar-21
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -32,10 +32,10 @@
 ### Start of script variables ###
 readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
-readonly SCM_VERSION="v2.5.47"
-readonly SCRIPT_VERSION="v2.5.47"
-readonly SCRIPT_VERSTAG="25121220"
-SCRIPT_BRANCH="master"
+readonly SCM_VERSION="v2.5.48"
+readonly SCRIPT_VERSION="v2.5.48"
+readonly SCRIPT_VERSTAG="26032101"
+SCRIPT_BRANCH="develop"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
 readonly SCRIPT_WEBPAGE_DIR="$(readlink -f /www/user)"
@@ -43,9 +43,11 @@ readonly SCRIPT_WEB_DIR="$SCRIPT_WEBPAGE_DIR/$SCRIPT_NAME_LOWER"
 readonly SHARED_DIR="/jffs/addons/shared-jy"
 readonly SHARED_REPO="https://raw.githubusercontent.com/AMTM-OSR/shared-jy/master"
 readonly SHARED_WEB_DIR="$SCRIPT_WEBPAGE_DIR/shared-jy"
+readonly TMP_STATE_JS="/tmp/state.js"
 readonly TEMP_MENU_TREE="/tmp/menuTree.js"
 readonly NTP_WATCHDOG_FILE="$SCRIPT_DIR/.watchdogenabled"
 readonly TAIL_TAINTED_FILE="$SCRIPT_DIR/.tailtaintdnsenabled"
+readonly WEBUI_MODS_FILE="$SCRIPT_DIR/.webui_modifications"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jun-07] ##
@@ -101,6 +103,9 @@ readonly ENDIN_MenuAddOnsTag="/\*\*ENDIN:_AddOns_\*\*/"
 readonly branchxStr_TAG="[Branch: $SCRIPT_BRANCH]"
 readonly versionDev_TAG="${SCRIPT_VERSION}_${SCRIPT_VERSTAG}"
 readonly versionMod_TAG="$SCRIPT_VERSION on $ROUTER_MODEL"
+
+# To support automatic script updates from AMTM #
+doScriptUpdateFromAMTM=true
 
 ##-------------------------------------##
 ## Added by Martinski W. [2025-May-17] ##
@@ -766,42 +771,14 @@ Update_Check()
 	echo "$doupdate,$localver,$serverver"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-May-17] ##
-##----------------------------------------##
-AppendTo_statejs_3004_()
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Mar-03] ##
+##------------------------------------------##
+AppendTo_statejs_Sitemap_3004_()
 {
-    cat << 'EOF'
+	cat << 'EOF'
+/*BEGIN:SCMERLIN_SITEMAP*/
 var myMenu = [];
-function AddDropdowns()
-{
-	if (myMenu.length == 0)
-	{
-		setTimeout(AddDropdowns,1000);
-		return;
-	}
-	for (var i = 0; i < myMenu.length; i++)
-	{
-		var sitemapstring = '<div class="dropdown-content">';
-		for(var i2 = 0; i2 < myMenu[i].tabs.length; i2++){
-			if(myMenu[i].tabs[i2].tabName == '__HIDE__'){
-				continue;
-			}
-		var tabname = myMenu[i].tabs[i2].tabName;
-		var taburl = myMenu[i].tabs[i2].url;
-		if(tabname == '__INHERIT__'){
-			tabname = taburl.split('.')[0];
-		}
-		if(taburl.indexOf('redirect.htm') != -1){
-			taburl = '/ext/shared-jy/redirect.htm';
-		}
-		sitemapstring += '<a href="'+taburl+'">'+tabname+'</a>';
-		}
-		document.getElementsByClassName(myMenu[i].index)[0].parentElement.parentElement.parentElement.parentElement.parentElement.innerHTML += sitemapstring;
-		document.getElementsByClassName(myMenu[i].index)[0].parentElement.parentElement.parentElement.parentElement.parentElement.classList.add('dropdown');
-	}
-}
-
 function GenerateSiteMap(showurls)
 {
 	myMenu = [];
@@ -895,16 +872,57 @@ function GenerateSiteMap(showurls)
 	return sitemapstring;
 }
 GenerateSiteMap(false);
-AddDropdowns();
+/*END:SCMERLIN_SITEMAP*/
 EOF
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2025-May-15] ##
-##---------------------------------------##
-AppendTo_statejs_3006_()
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Mar-03] ##
+##------------------------------------------##
+AppendTo_statejs_Dropdowns_3004_()
 {
-    cat << 'EOF'
+	cat << 'EOF'
+/*BEGIN:SCMERLIN_DROPDOWNS*/
+function AddDropdowns()
+{
+	if (myMenu.length == 0)
+	{
+		setTimeout(AddDropdowns,1000);
+		return;
+	}
+	for (var i = 0; i < myMenu.length; i++)
+	{
+		var sitemapstring = '<div class="dropdown-content">';
+		for(var i2 = 0; i2 < myMenu[i].tabs.length; i2++){
+			if(myMenu[i].tabs[i2].tabName == '__HIDE__'){
+				continue;
+			}
+		var tabname = myMenu[i].tabs[i2].tabName;
+		var taburl = myMenu[i].tabs[i2].url;
+		if(tabname == '__INHERIT__'){
+			tabname = taburl.split('.')[0];
+		}
+		if(taburl.indexOf('redirect.htm') != -1){
+			taburl = '/ext/shared-jy/redirect.htm';
+		}
+		sitemapstring += '<a href="'+taburl+'">'+tabname+'</a>';
+		}
+		document.getElementsByClassName(myMenu[i].index)[0].parentElement.parentElement.parentElement.parentElement.parentElement.innerHTML += sitemapstring;
+		document.getElementsByClassName(myMenu[i].index)[0].parentElement.parentElement.parentElement.parentElement.parentElement.classList.add('dropdown');
+	}
+}
+AddDropdowns();
+/*END:SCMERLIN_DROPDOWNS*/
+EOF
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Mar-03] ##
+##------------------------------------------##
+AppendTo_statejs_Sitemap_3006_()
+{
+	cat << 'EOF'
+/*BEGIN:SCMERLIN_SITEMAP*/
 function GenerateSiteMap(showurls)
 {
     myMenu = [];
@@ -970,6 +988,17 @@ function GenerateSiteMap(showurls)
     }
     return sitemapstring;
 }
+/*END:SCMERLIN_SITEMAP*/
+EOF
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Mar-03] ##
+##------------------------------------------##
+AppendTo_statejs_Dropdowns_3006_()
+{
+	cat << 'EOF'
+/*BEGIN:SCMERLIN_DROPDOWNS*/
 (function(){
   if (window._stateEnhancedInjected) return;
   window._stateEnhancedInjected = true;
@@ -1103,56 +1132,251 @@ function GenerateSiteMap(showurls)
     injectDropdowns();
   });
 })();
+/*END:SCMERLIN_DROPDOWNS*/
 EOF
 }
 
+AppendTo_statejs_3004_()
+{
+	AppendTo_statejs_Sitemap_3004_
+	if [ -f "$WEBUI_MODS_FILE" ]; then
+		AppendTo_statejs_Dropdowns_3004_
+	fi
+}
+
+AppendTo_statejs_3006_()
+{
+	AppendTo_statejs_Sitemap_3006_
+	if [ -f "$WEBUI_MODS_FILE" ]; then
+		AppendTo_statejs_Dropdowns_3006_
+	fi
+}
+
 ##----------------------------------------##
-## Modified by Martinski W. [2025-May-17] ##
+## Added by ExtremeFiretop [2026-Mar-03] ##
 ##----------------------------------------##
+Patch_StateJS()
+{
+	local sitemapPage="NONE"
+
+	[ -f /www/state.js ] || return 0
+
+	# Always rebuild from the original 'state.js' file #
+	umount /www/state.js 2>/dev/null
+	cp -f /www/state.js "$TMP_STATE_JS" 2>/dev/null || return 1
+
+	#
+	# If WebUI modifications are DISABLED, bind mount a clean/stock
+	# state.js file WITHOUT any custom scMerlin modifications at all.
+	#
+	if [ ! -f "$WEBUI_MODS_FILE" ]
+	then
+		mount -o bind "$TMP_STATE_JS" /www/state.js
+		return 0
+	fi
+
+	# Find the currently mounted Sitemap webpage #
+	if [ -f "$TEMP_MENU_TREE" ]
+	then
+		sitemapPage="$(_Check_WebGUI_Page_Exists_ "$SCRIPT_DIR/sitemap.asp")"
+	fi
+
+	# Inject Sitemap link into bottom bar if we know the webpage #
+	if echo "$sitemapPage" | grep -qE "^user[0-9]+\.asp$"
+	then
+		sed -i \
+			's~<td width=\\"335\\" id=\\"bottom_help_link\\" align=\\"left\\">~<td width=\\"335\\" id=\\"bottom_help_link\\" align=\\"left\\"><a style=\\"font-weight: bolder;text-decoration:underline;cursor:pointer;\\" href=\\"\/'"$sitemapPage"'\\" target=\\"_blank\\">Sitemap<\/a>\&nbsp\|\&nbsp~' \
+			"$TMP_STATE_JS"
+	fi
+
+	# Append scMerlin injected blocks #
+	{
+		echo '/*BEGIN:SCMERLIN_INJECT*/'
+		if [ "$fwInstalledBaseVers" = "3004" ]
+		then
+			AppendTo_statejs_Sitemap_3004_
+			AppendTo_statejs_Dropdowns_3004_
+		else
+			# For 3006 F/W behavior #
+			AppendTo_statejs_Sitemap_3006_
+			AppendTo_statejs_Dropdowns_3006_
+		fi
+		echo '/*END:SCMERLIN_INJECT*/'
+	} >> "$TMP_STATE_JS"
+
+	# Bind mount for WebUI #
+	mount -o bind "$TMP_STATE_JS" /www/state.js
+	return 0
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2026-Mar-21] ##
+##----------------------------------------##
+Extra_WebUI_Modifications()
+{
+	case "$1" in
+		enable)
+			touch "$WEBUI_MODS_FILE"
+			Mount_WebUI >/dev/null 2>&1
+		;;
+		disable)
+			rm -f "$WEBUI_MODS_FILE"
+			Mount_WebUI >/dev/null 2>&1
+		;;
+		apply)
+			# Always work from a writable temp copy if one does not exist yet #
+			if [ ! -f /tmp/index_style.css ]
+			then
+				umount /www/index_style.css 2>/dev/null
+				cp -fp /www/index_style.css /tmp/index_style.css \
+					2>/dev/null || return 1
+			fi
+
+			# Strip scMerlin dropdown CSS unconditionally first #
+			sed -i '/\.dropdown-content/d' /tmp/index_style.css
+			sed -i '/\.dropdown:hover[[:space:]]*\.dropdown-content/d' \
+				/tmp/index_style.css
+
+			# If WebUI mods are DISABLED, do NOT re-add dropdown CSS #
+			if [ ! -f "$WEBUI_MODS_FILE" ]
+			then
+				umount /www/index_style.css 2>/dev/null
+
+				if grep -qF '.menu_Addons { background:' /tmp/index_style.css
+				then
+					mount -o bind /tmp/index_style.css /www/index_style.css
+				else
+					rm -f /tmp/index_style.css 2>/dev/null
+				fi
+				return 0
+			fi
+
+			# Ensure the required menu 'Addons' icon exists at this point #
+			if ! grep -qF '.menu_Addons { background:' /tmp/index_style.css
+			then
+				echo ".menu_Addons { background: url(ext/shared-jy/addons.png); background-size: contain;}" \
+					>> /tmp/index_style.css
+			fi
+
+			# Re-add dropdown CSS #
+			{
+				echo ".dropdown-content {top: 0px; left: 185px; "\
+"visibility: hidden; position: absolute; "\
+"background-color: #3a4042; min-width: 165px; "\
+"box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2); "\
+"z-index: 1000;}"
+				echo ".dropdown-content a {padding: 6px 8px; "\
+"text-decoration: none; display: block; height: 100%; "\
+"min-height: 20px; max-height: 40px; font-weight: bold; "\
+"text-shadow: 1px 1px 0px black; "\
+"font-family: Verdana, MS UI Gothic, MS P Gothic, "\
+"Microsoft Yahei UI, sans-serif; font-size: 12px; "\
+"border: 1px solid #6B7071;}"
+				echo ".dropdown-content a:hover {background-color: #77a5c6;}"
+				echo ".dropdown:hover .dropdown-content {visibility: visible;}"
+			} >> /tmp/index_style.css
+
+			umount /www/index_style.css 2>/dev/null
+			mount -o bind /tmp/index_style.css /www/index_style.css
+		;;
+		status)
+			if [ -f "$WEBUI_MODS_FILE" ]
+			then
+				echo "ENABLED"
+			else
+				echo "DISABLED"
+			fi
+		;;
+	esac
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Mar-03] ##
+##------------------------------------------##
 Upgrade_StateJS()
 {
-    local TMP_STATE_JS="/tmp/state.js"
-    [ -f "$TMP_STATE_JS" ] || return 0
+	[ -f "$TMP_STATE_JS" ] || return 0
 
-    if [ "$fwInstalledBaseVers" = "3006" ] && \
-       grep -q '^var myMenu = \[\];$' "$TMP_STATE_JS"
-    then
-        umount /www/state.js 2>/dev/null
+	#
+	# Bootstrap/migrate dropdown preference:
+	# If state.js already contains dropdowns code but the marker file doesn't exist
+	# (older versions), create the marker so updates don't "start disabled".
+	#
+	if [ ! -f "$WEBUI_MODS_FILE" ]
+	then
+		if grep -qE '^[[:space:]]*window\._scmDropdownsEnabled[[:space:]]*=[[:space:]]*1' \
+			"$TMP_STATE_JS" 2>/dev/null || \
+		   grep -qF 'BEGIN:SCMERLIN_DROPDOWNS' "$TMP_STATE_JS" 2>/dev/null || \
+		   grep -qF 'function injectDropdowns()' "$TMP_STATE_JS" 2>/dev/null || \
+		   grep -qF 'AddDropdowns();' "$TMP_STATE_JS" 2>/dev/null
+		then
+			touch "$WEBUI_MODS_FILE" 2>/dev/null
+		fi
+	fi
 
-        # Remove previous code #
-        sed -i '/^var myMenu = \[\];$/,/^AddDropdowns();$/d' "$TMP_STATE_JS"
+	# If new split markers exist, just remove & re-append based on current state.
+	if grep -q 'BEGIN:SCMERLIN_SITEMAP' "$TMP_STATE_JS" 2>/dev/null || \
+	   grep -q 'BEGIN:SCMERLIN_DROPDOWNS' "$TMP_STATE_JS" 2>/dev/null
+	then
+		umount /www/state.js 2>/dev/null
 
-        # Append new 3006 code #
-        AppendTo_statejs_3006_ >> "$TMP_STATE_JS"
+		sed -i '/\/\*BEGIN:SCMERLIN_SITEMAP\*\//,/\/\*END:SCMERLIN_SITEMAP\*\//d' \
+			"$TMP_STATE_JS"
+		sed -i '/\/\*BEGIN:SCMERLIN_DROPDOWNS\*\//,/\/\*END:SCMERLIN_DROPDOWNS\*\//d' \
+			"$TMP_STATE_JS"
 
-        mount -o bind /tmp/state.js /www/state.js
+		if [ "$fwInstalledBaseVers" = "3004" ]
+		then
+			AppendTo_statejs_3004_ >> "$TMP_STATE_JS"
+		else
+			AppendTo_statejs_3006_ >> "$TMP_STATE_JS"
+		fi
 
-    elif [ "$fwInstalledBaseVers" = "3006" ] && \
-         ! grep -q 'write them straight to cache' "$TMP_STATE_JS"
-    then
-        umount /www/state.js 2>/dev/null
+		mount -o bind "$TMP_STATE_JS" /www/state.js
+		return 0
+	fi
 
-        # Remove old block starting at GenerateSiteMap() through EOF
-        sed -i '/^function GenerateSiteMap(showurls)/,$d' "$TMP_STATE_JS"
+	# ---- Legacy upgrade paths below ----
 
-        # Reinject the 3006 specific code
-        AppendTo_statejs_3006_ >> "$TMP_STATE_JS"
+	if [ "$fwInstalledBaseVers" = "3006" ] && \
+	   grep -q '^var myMenu = \[\];$' "$TMP_STATE_JS"
+	then
+		umount /www/state.js 2>/dev/null
 
-        mount -o bind /tmp/state.js /www/state.js
+		# Remove previous code #
+		sed -i '/^var myMenu = \[\];$/,/^AddDropdowns();$/d' "$TMP_STATE_JS"
 
-    elif [ "$fwInstalledBaseVers" = "3004" ] && \
-         grep -q 'function injectDropdowns()' "$TMP_STATE_JS"
-    then
-        umount /www/state.js 2>/dev/null
+		# Append new (split-aware) 3006 code #
+		AppendTo_statejs_3006_ >> "$TMP_STATE_JS"
 
-        # Remove the 3006 code #
-        sed -i '/^function GenerateSiteMap(showurls)/,$d' "$TMP_STATE_JS"
+		mount -o bind "$TMP_STATE_JS" /www/state.js
 
-        # Append previous code #
-        AppendTo_statejs_3004_ >> "$TMP_STATE_JS"
+	elif [ "$fwInstalledBaseVers" = "3006" ] && \
+	     ! grep -q 'write them straight to cache' "$TMP_STATE_JS"
+	then
+		umount /www/state.js 2>/dev/null
 
-        mount -o bind /tmp/state.js /www/state.js
-    fi
+		# Remove old block starting at GenerateSiteMap() through EOF
+		sed -i '/^function GenerateSiteMap(showurls)/,$d' "$TMP_STATE_JS"
+
+		# Reinject the 3006 specific code
+		AppendTo_statejs_3006_ >> "$TMP_STATE_JS"
+
+		mount -o bind "$TMP_STATE_JS" /www/state.js
+
+	elif [ "$fwInstalledBaseVers" = "3004" ] && \
+	     grep -q 'function injectDropdowns()' "$TMP_STATE_JS"
+	then
+		umount /www/state.js 2>/dev/null
+
+		# Remove the 3006 code #
+		sed -i '/^function GenerateSiteMap(showurls)/,$d' "$TMP_STATE_JS"
+
+		# Append previous code #
+		AppendTo_statejs_3004_ >> "$TMP_STATE_JS"
+
+		mount -o bind "$TMP_STATE_JS" /www/state.js
+	fi
 }
 
 ##------------------------------------------##
@@ -1167,9 +1391,11 @@ Update_Version()
 		localver="$(echo "$updatecheckresult" | cut -f2 -d',')"
 		serverver="$(echo "$updatecheckresult" | cut -f3 -d',')"
 
-		if [ "$isupdate" = "version" ]; then
+		if [ "$isupdate" = "version" ]
+		then
 			Print_Output true "New version of $SCRIPT_NAME available - $serverver" "$PASS"
-		elif [ "$isupdate" = "md5" ]; then
+		elif [ "$isupdate" = "md5" ]
+		then
 			Print_Output true "MD5 hash of $SCRIPT_NAME does not match - hotfix available - $serverver" "$PASS"
 		fi
 
@@ -1244,6 +1470,23 @@ Update_Version()
 		fi
 		exit 0
 	fi
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2026-Feb-18] ##
+##-------------------------------------##
+ScriptUpdateFromAMTM()
+{
+    if ! "$doScriptUpdateFromAMTM"
+    then
+        printf "Automatic script updates via AMTM are currently disabled.\n\n"
+        return 1
+    fi
+    if [ $# -gt 0 ] && [ "$1" = "check" ]
+    then return 0
+    fi
+    Update_Version force unattended
+    return "$?"
 }
 
 ##----------------------------------------##
@@ -1423,6 +1666,7 @@ Create_Symlinks()
 	ln -s "$NTP_WATCHDOG_FILE" "$SCRIPT_WEB_DIR/watchdogenabled.htm" 2>/dev/null
 	ln -s "$NTP_READY_CHECK_CONF" "$SCRIPT_WEB_DIR/${NTP_READY_CHECK_FILE}.htm" 2>/dev/null
 	ln -s "$TAIL_TAINTED_FILE" "$SCRIPT_WEB_DIR/tailtaintdnsenabled.htm" 2>/dev/null
+	ln -s "$WEBUI_MODS_FILE" "$SCRIPT_WEB_DIR/webuimodsenabled.htm" 2>/dev/null
 
 	if [ ! -d "$SHARED_WEB_DIR" ]; then
 		ln -s "$SHARED_DIR" "$SHARED_WEB_DIR" 2>/dev/null
@@ -1651,16 +1895,20 @@ ${ENDIN_MenuAddOnsTag}" "$TEMP_MENU_TREE"
 
 ### locking mechanism code credit to Martineau (@MartineauUK) ###
 ##----------------------------------------##
-## Modified by Martinski W. [2025-May-17] ##
+## Modified by Martinski W. [2026-Mar-21] ##
 ##----------------------------------------##
 Mount_WebUI()
 {
-	realpage=""
+	local mainWebPage=""  sitemapWebPage="NONE"
+	local restartHttpd=false  sitemapAction=""
+
 	Print_Output true "Mounting WebUI tabs for $SCRIPT_NAME" "$PASS"
+
 	LOCKFILE=/tmp/addonwebui.lock
 	FD=386
 	eval exec "$FD>$LOCKFILE"
 	flock -x "$FD"
+
 	Get_WebUI_Page "$SCRIPT_DIR/scmerlin_www.asp"
 	if [ "$MyWebPage" = "NONE" ]
 	then
@@ -1668,51 +1916,58 @@ Mount_WebUI()
 		flock -u "$FD"
 		return 1
 	fi
+
 	cp -fp "$SCRIPT_DIR/scmerlin_www.asp" "$SCRIPT_WEBPAGE_DIR/$MyWebPage"
 	echo "$SCRIPT_NAME" > "$SCRIPT_WEBPAGE_DIR/$(echo "$MyWebPage" | cut -f1 -d'.').title"
 
 	if [ "$(uname -o)" = "ASUSWRT-Merlin" ]
 	then
-		if [ ! -f /tmp/index_style.css ]; then
+		if [ ! -f /tmp/index_style.css ]
+		then
 			cp -fp /www/index_style.css /tmp/
 		fi
 
-		if ! grep -q '.menu_Addons' /tmp/index_style.css ; then
-			echo ".menu_Addons { background: url(ext/shared-jy/addons.png); background-size: contain; }" >> /tmp/index_style.css
-		fi
-
-		if grep -q '.menu_Addons' /tmp/index_style.css && ! grep -q 'url(ext/shared-jy/addons.png); background-size: contain;' /tmp/index_style.css; then
-			sed -i 's/addons.png);/addons.png); background-size: contain;/' /tmp/index_style.css
-		fi
-
-		if grep -q '.dropdown-content {display: block;}' /tmp/index_style.css ; then
-			sed -i '/dropdown-content/d' /tmp/index_style.css
-		fi
-
-		if ! grep -q '.dropdown-content {visibility: visible;}' /tmp/index_style.css
+		# The menu 'Addons' icon must exist when mounting the WebUI #
+		if ! grep -qF '.menu_Addons { background:' /tmp/index_style.css
 		then
-			{
-				echo ".dropdown-content {top: 0px; left: 185px; visibility: hidden; position: absolute; background-color: #3a4042; min-width: 165px; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2); z-index: 1000;}"
-				echo ".dropdown-content a {padding: 6px 8px; text-decoration: none; display: block; height: 100%; min-height: 20px; max-height: 40px; font-weight: bold; text-shadow: 1px 1px 0px black; font-family: Verdana, MS UI Gothic, MS P Gothic, Microsoft Yahei UI, sans-serif; font-size: 12px; border: 1px solid #6B7071;}"
-				echo ".dropdown-content a:hover {background-color: #77a5c6;}"
-				echo ".dropdown:hover .dropdown-content {visibility: visible;}"
-			} >> /tmp/index_style.css
+			echo ".menu_Addons { background: url(ext/shared-jy/addons.png); }" >> /tmp/index_style.css
 		fi
 
-		umount /www/index_style.css 2>/dev/null
-		mount -o bind /tmp/index_style.css /www/index_style.css
-
-		if [ ! -f "$TEMP_MENU_TREE" ]; then
+		if [ ! -f "$TEMP_MENU_TREE" ]
+		then
 			cp -fp /www/require/modules/menuTree.js "$TEMP_MENU_TREE"
 		fi
+
+		# Remove any existing scMerlin webpage first #
 		sed -i "\\~$MyWebPage~d" "$TEMP_MENU_TREE"
 
 		_CreateMenuAddOnsSection_
 
-		sed -i "/url: \"javascript:var helpwindow=window.open('\/ext\/shared-jy\/redirect.htm'/i {url: \"$MyWebPage\", tabName: \"$SCRIPT_NAME\"}," "$TEMP_MENU_TREE"
-		realpage="$MyWebPage"
+		sed -i \
+			"/url: \"javascript:var helpwindow=window.open('\/ext\/shared-jy\/redirect.htm'/i {url: \"$MyWebPage\", tabName: \"$SCRIPT_NAME\"}," \
+			"$TEMP_MENU_TREE"
+		mainWebPage="$MyWebPage"
 
-		if [ -f "$SCRIPT_DIR/sitemap.asp" ]
+		#
+		# Clean up any previously-mounted Sitemap webpage and its MenuTree
+		# entry, so the current state of the toggle switch fully controls it.
+		#
+		sitemapWebPage="$(_Check_WebGUI_Page_Exists_ "$SCRIPT_DIR/sitemap.asp")"
+		if [ -n "$sitemapWebPage" ] && \
+		   [ "$sitemapWebPage" != "NONE" ]
+		then
+			sed -i "\\~$sitemapWebPage~d" "$TEMP_MENU_TREE"
+			rm -f "$SCRIPT_WEBPAGE_DIR/$sitemapWebPage"
+			rm -f "$SCRIPT_WEBPAGE_DIR/$(echo "$sitemapWebPage" | cut -f1 -d'.').title"
+			restartHttpd=true
+			sitemapAction="removed"
+		fi
+
+		#
+		# Do bind mount if WebUI modifications are ENABLED #
+		#
+		if [ -f "$WEBUI_MODS_FILE" ] && \
+		   [ -f "$SCRIPT_DIR/sitemap.asp" ]
 		then
 			Get_WebUI_Page "$SCRIPT_DIR/sitemap.asp"
 			if [ "$MyWebPage" = "NONE" ]
@@ -1721,30 +1976,44 @@ Mount_WebUI()
 				flock -u "$FD"
 				return 1
 			fi
+
 			cp -fp "$SCRIPT_DIR/sitemap.asp" "$SCRIPT_WEBPAGE_DIR/$MyWebPage"
 			sed -i "\\~$MyWebPage~d" "$TEMP_MENU_TREE"
-			sed -i "/url: \"javascript:var helpwindow=window.open('\/ext\/shared-jy\/redirect.htm'/a {url: \"$MyWebPage\", tabName: \"Sitemap\"}," "$TEMP_MENU_TREE"
-
-			umount /www/state.js 2>/dev/null
-			cp -f /www/state.js /tmp/
-			sed -i 's~<td width=\\"335\\" id=\\"bottom_help_link\\" align=\\"left\\">~<td width=\\"335\\" id=\\"bottom_help_link\\" align=\\"left\\"><a style=\\"font-weight: bolder;text-decoration:underline;cursor:pointer;\\" href=\\"\/'"$MyWebPage"'\\" target=\\"_blank\\">Sitemap<\/a>\&nbsp\|\&nbsp~' /tmp/state.js
-
-			# Append custom code to 'state.js' file #
-			if [ "$fwInstalledBaseVers" = "3004" ]
-			then AppendTo_statejs_3004_ >> /tmp/state.js
-			else AppendTo_statejs_3006_ >> /tmp/state.js
-			fi
-
-			mount -o bind /tmp/state.js /www/state.js
+			sed -i \
+				"/url: \"javascript:var helpwindow=window.open('\/ext\/shared-jy\/redirect.htm'/a {url: \"$MyWebPage\", tabName: \"Sitemap\"}," \
+				"$TEMP_MENU_TREE"
 
 			Print_Output true "Mounted Sitemap page as $MyWebPage" "$PASS"
+			restartHttpd=true
+			sitemapAction="added"
 		fi
+
+		# Apply CSS/menu behavior based on saved setting, but ONLY #
+		# *AFTER* "TEMP_MENU_TREE" reflects the final menu state. #
+		# This ensures proper initialization on cold boots/reboots. #
+		Extra_WebUI_Modifications apply
 
 		umount /www/require/modules/menuTree.js 2>/dev/null
 		mount -o bind "$TEMP_MENU_TREE" /www/require/modules/menuTree.js
+
+		# state.js is now fully handled here #
+		Patch_StateJS
+
+		if "$restartHttpd"
+		then
+			/sbin/service restart_httpd >/dev/null 2>&1
+			if [ "$sitemapAction" = "removed" ]
+			then
+				Print_Output true "Restarted httpd after removing Sitemap page" "$PASS"
+			elif [ "$sitemapAction" = "added" ]
+			then
+				Print_Output true "Restarted httpd after adding Sitemap page" "$PASS"
+			fi
+		fi
 	fi
+
 	flock -u "$FD"
-	Print_Output true "Mounted $SCRIPT_NAME WebUI page as $realpage" "$PASS"
+	Print_Output true "Mounted $SCRIPT_NAME WebUI page as $mainWebPage" "$PASS"
 }
 
 ##-------------------------------------##
@@ -1957,15 +2226,18 @@ TailTaintDNSmasq()
 		enable)
 			touch "$TAIL_TAINTED_FILE"
 			"$SCRIPT_DIR/S95tailtaintdns" start >/dev/null 2>&1
-			if [ -f /jffs/scripts/services-start ]; then
+			if [ -f /jffs/scripts/services-start ]
+			then
 				STARTUPLINECOUNT=$(grep -i -c '# '"$SCRIPT_NAME - tailtaintdns" /jffs/scripts/services-start)
 				STARTUPLINECOUNTEX=$(grep -i -cx "$SCRIPT_DIR/S95tailtaintdns start >/dev/null 2>&1 & # $SCRIPT_NAME - tailtaintdns" /jffs/scripts/services-start)
 
-				if [ "$STARTUPLINECOUNT" -gt 1 ] || { [ "$STARTUPLINECOUNTEX" -eq 0 ] && [ "$STARTUPLINECOUNT" -gt 0 ]; }; then
+				if [ "$STARTUPLINECOUNT" -gt 1 ] || { [ "$STARTUPLINECOUNTEX" -eq 0 ] && [ "$STARTUPLINECOUNT" -gt 0 ]; }
+				then
 					sed -i -e '/# '"$SCRIPT_NAME - tailtaintdns"'/d' /jffs/scripts/services-start
 				fi
 
-				if [ "$STARTUPLINECOUNTEX" -eq 0 ]; then
+				if [ "$STARTUPLINECOUNTEX" -eq 0 ]
+				then
 					echo "$SCRIPT_DIR/S95tailtaintdns start >/dev/null 2>&1 & # $SCRIPT_NAME - tailtaintdns" >> /jffs/scripts/services-start
 				fi
 			else
@@ -1978,9 +2250,9 @@ TailTaintDNSmasq()
 		disable)
 			rm -f "$TAIL_TAINTED_FILE"
 			"$SCRIPT_DIR/S95tailtaintdns" stop >/dev/null 2>&1
-			if [ -f /jffs/scripts/services-start ]; then
+			if [ -f /jffs/scripts/services-start ]
+			then
 				STARTUPLINECOUNT=$(grep -i -c '# '"$SCRIPT_NAME - tailtaintdns" /jffs/scripts/services-start)
-
 				if [ "$STARTUPLINECOUNT" -gt 0 ]; then
 					sed -i -e '/# '"$SCRIPT_NAME"' - tailtaintdns/d' /jffs/scripts/services-start
 				fi
@@ -2242,7 +2514,7 @@ _InstallWanEventHook_()
 _Init_WAN_Uptime_File_()
 {
     local ifaceNum  timeSecs  seedTag  wanIFaceNum  wanIFaceFile
-    local wansMode  seeded_any=false
+    local wansMode  seededANY=false
 
     wansMode="$(nvram get wans_mode 2>/dev/null)"
 
@@ -2259,17 +2531,17 @@ _Init_WAN_Uptime_File_()
                 then
                     read -r wanIFaceNum timeSecs seedTag < "$wanIFaceFile"
                 fi
-                if [ "$wanIFaceNum" != "$ifaceNum" ] || [ -z "$timeSecs" ]
+                if [ "$ifaceNum" != "$wanIFaceNum" ] || [ -z "$timeSecs" ]
                 then
                     echo "$ifaceNum $(date +%s) SEED" > "$wanIFaceFile"
                     sleep 1
                 fi
-                seeded_any=true
+                seededANY=true
             else
                 rm -f "/tmp/wan${ifaceNum}_uptime.tmp"
             fi
         done
-        "$seeded_any" && return 0 || return 1
+        "$seededANY" && return 0 || return 1
     fi
 
     for ifaceNum in 0 1
@@ -2277,19 +2549,18 @@ _Init_WAN_Uptime_File_()
         if [ "$(nvram get "wan${ifaceNum}_primary")" = "1" ] && \
            [ "$(nvram get "wan${ifaceNum}_state_t")" = "2" ]
         then
-            wanIFaceNum=""
+            wanIFaceNum="" ; timeSecs=""
             wanIFaceFile="/tmp/wan${ifaceNum}_uptime.tmp"
             if [ -s "$wanIFaceFile" ]
             then
                 read -r wanIFaceNum timeSecs seedTag < "$wanIFaceFile"
             fi
-
-            if [ -n "$wanIFaceNum" ] && [ "$ifaceNum" = "$wanIFaceNum" ]
-            then return 0  # Already SEEDED #
+            if [ "$ifaceNum" != "$wanIFaceNum" ] || [ -z "$timeSecs" ]
+            then
+                echo "$ifaceNum $(date +%s) SEED" > "$wanIFaceFile"
+                sleep 1
             fi
-            echo "$ifaceNum $(date +%s) SEED" > "$wanIFaceFile"
-            sleep 1
-            return 0
+            return 0  # SEEDED OK #
         fi
     done
 
@@ -2386,9 +2657,8 @@ Get_WAN_Uptime()
             approx_flag=""
             if [ -z "$upsecs" ] || [ "$upsecs" -le 0 ]
             then
-                wanIFaceNum=""
+                wanIFaceNum="" ; wanup_secs="" ; seedTag=""
                 wanIFaceFile="/tmp/wan${ifaceNum}_uptime.tmp"
-                wanup_secs="" ; seedTag=""
                 if [ -s "$wanIFaceFile" ]
                 then
                     read -r wanIFaceNum wanup_secs seedTag < "$wanIFaceFile"
@@ -2399,7 +2669,7 @@ Get_WAN_Uptime()
                     now_secs="$(date +%s)"
                     if [ "$wanup_secs" -lt "$now_secs" ]
                     then
-                        upsecs="$(( now_secs - wanup_secs ))"
+                        upsecs="$((now_secs - wanup_secs))"
                         [ "$seedTag" = "SEED" ] && \
                         approx_flag=" (initial-seed)"
                     fi
@@ -2465,7 +2735,7 @@ Get_WAN_Uptime()
         then continue
         fi
 
-        wanIFaceNum=""
+        wanIFaceNum="" ; wanup_secs="" ; seedTag=""
         wanIFaceFile="/tmp/wan${ifaceNum}_uptime.tmp"
         if [ -s "$wanIFaceFile" ]
         then
@@ -2487,7 +2757,7 @@ Get_WAN_Uptime()
 
         if [ -n "$active_IFaceWAN" ] && [ "$wanup_secs" -lt "$now_secs" ]
         then
-            upsecs="$(( now_secs - wanup_secs ))"
+            upsecs="$((now_secs - wanup_secs))"
             approx_flag="$seedTag"   # will be "SEED" #
         else
             active_IFaceWAN=""
@@ -2892,7 +3162,6 @@ _Menu_Services_()
 	done
 
 	"$exitMenu" && return 0
-	ScriptHeader
 	_Menu_Services_
 }
 
@@ -2910,7 +3179,7 @@ _Menu_OpenVPN_()
 	if _CheckFor_OpenVPN_Clients_Available_
 	then
 		printf " ${BOLDUNDERLN}${GRNct}OpenVPN Clients${CLRct}\n"
-		printf " ${BOLD}${WARN}(Selecting an option will restart the OpenVPN Client)${CLRct}\n\n"
+		printf " ${BOLD}${WARN}(Selecting an option will restart the Client)${CLRct}\n\n"
 		vpnClientNum=1
 		while [ "$vpnClientNum" -lt 6 ]
 		do
@@ -2936,7 +3205,7 @@ _Menu_OpenVPN_()
 	if _CheckFor_OpenVPN_Servers_Available_
 	then
 		printf "\n ${BOLDUNDERLN}${GRNct}OpenVPN Servers${CLRct}\n"
-		printf " ${BOLD}${WARN}(Selecting an option will restart the OpenVPN Server)${CLRct}\n\n"
+		printf " ${BOLD}${WARN}(Selecting an option will restart the Server)${CLRct}\n\n"
 		vpnServerNum=1
 		while [ "$vpnServerNum" -lt 3 ]
 		do
@@ -3002,7 +3271,6 @@ _Menu_OpenVPN_()
 	done
 
 	"$exitMenu" && return 0
-	ScriptHeader
 	_Menu_OpenVPN_
 }
 
@@ -3020,7 +3288,7 @@ _Menu_WireGuard_()
 	if _CheckFor_WireGuard_Clients_Available_
 	then
 		printf " ${BOLDUNDERLN}${GRNct}WireGuard Clients${CLRct}\n"
-		printf " ${BOLD}${WARN}(Selecting an option will restart the WireGuard Client)${CLRct}\n\n"
+		printf " ${BOLD}${WARN}(Selecting an option will restart the Client)${CLRct}\n\n"
 		vpnClientNum=1
 		while [ "$vpnClientNum" -lt 6 ]
 		do
@@ -3047,7 +3315,7 @@ _Menu_WireGuard_()
 	if _CheckFor_WireGuard_Servers_Available_
 	then
 		printf "\n ${BOLDUNDERLN}${GRNct}WireGuard Server${CLRct}\n"
-		printf " ${BOLD}${WARN}(Selecting the option will restart the WireGuard Server)${CLRct}\n\n"
+		printf " ${BOLD}${WARN}(Selecting the option will restart the Server)${CLRct}\n\n"
 		vpnServerNum=1  ## Currently only ONE WireGuard Server is available ##
 		if _IsWireGuard_Server_Configured_ "$vpnServerNum"
 		then
@@ -3116,7 +3384,6 @@ _Menu_WireGuard_()
 	done
 
 	"$exitMenu" && return 0
-	ScriptHeader
 	_Menu_WireGuard_
 }
 
@@ -3311,7 +3578,6 @@ _Menu_RouterUtilities_()
 	done
 
 	"$exitMenu" && return 0
-	ScriptHeader
 	_Menu_RouterUtilities_
 }
 
@@ -3356,6 +3622,15 @@ _Menu_ToggleOptions_()
 	printf "   ${GRNct}dns${CLRct}. Toggle dnsmasq tainted watchdog script\n"
 	printf "        Currently: ${TAILTAINT_DNS_STATUS}\n\n"
 
+	if [ "$(Extra_WebUI_Modifications status)" = "ENABLED" ]
+	then
+		WEBUI_MODS_STATUS="${GRNct}ENABLED${CLRct}"
+	else
+		WEBUI_MODS_STATUS="${REDct}DISABLED${CLRct}"
+	fi
+	printf "   ${GRNct}wui${CLRct}. Toggle additional WebUI modifications\n"
+	printf "        Currently: ${WEBUI_MODS_STATUS}\n\n"
+
 	printf "     ${GRNct}e${CLRct}. Return to Main Menu\n"
 	printf "\n${menuSepStr}\n\n"
 
@@ -3394,6 +3669,16 @@ _Menu_ToggleOptions_()
 				fi
 				break
 			;;
+			wui)
+				printf "\n"
+				WEBUI_MODS_STATUS="$(Extra_WebUI_Modifications status)"
+				if [ "$WEBUI_MODS_STATUS" = "ENABLED" ]
+				then Extra_WebUI_Modifications disable
+				elif [ "$WEBUI_MODS_STATUS" = "DISABLED" ]
+				then Extra_WebUI_Modifications enable
+				fi
+				break
+			;;
 			e) exitMenu=true
 			   break
 			;;
@@ -3406,7 +3691,6 @@ _Menu_ToggleOptions_()
 	done
 
 	"$exitMenu" && return 0
-	ScriptHeader
 	_Menu_ToggleOptions_
 }
 
@@ -3571,6 +3855,7 @@ Menu_Install()
 	_InstallWanEventHook_ create 2>/dev/null
 	_Init_WAN_Uptime_File_
 
+	touch "$WEBUI_MODS_FILE"
 	Update_File scmerlin_www.asp
 	Update_File sitemap.asp
 	Update_File shared-jy.tar.gz
@@ -3595,6 +3880,7 @@ Menu_Install()
 ##----------------------------------------##
 Menu_Startup()
 {
+	Print_Output true "$SCRIPT_NAME $SCRIPT_VERSION starting up" "$PASS"
 	Create_Dirs
 	Create_Symlinks
 	Set_Version_Custom_Settings local "$SCRIPT_VERSION"
@@ -3681,9 +3967,9 @@ _FindandRemoveMenuAddOnsSection_()
    return "$retCode"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Jul-22] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2026-Mar-21] ##
+##----------------------------------------##
 Menu_Uninstall()
 {
 	Print_Output true "Removing $SCRIPT_NAME..." "$PASS"
@@ -3700,7 +3986,9 @@ Menu_Uninstall()
 	eval exec "$FD>$LOCKFILE"
 	flock -x "$FD"
 
-	local doResetWebGUI=false  doResetStyle=false
+	local doResetWebGUI=false
+	local keepAddonsCSS=false
+	local restartHttpd=false
 
 	if [ -f "$SCRIPT_DIR/sitemap.asp" ]
 	then
@@ -3710,47 +3998,80 @@ Menu_Uninstall()
 		   [ -f "$TEMP_MENU_TREE" ]
 		then
 			doResetWebGUI=true
+			restartHttpd=true
 			sed -i "\\~$MyWebPage~d" "$TEMP_MENU_TREE"
 			rm -f "$SCRIPT_WEBPAGE_DIR/$MyWebPage"
+			rm -f "$SCRIPT_WEBPAGE_DIR/$(echo "$MyWebPage" | cut -f1 -d'.').title"
 		fi
 	fi
+
 	Get_WebUI_Page "$SCRIPT_DIR/scmerlin_www.asp"
 	if [ -n "$MyWebPage" ] && \
 	   [ "$MyWebPage" != "NONE" ] && \
 	   [ -f "$TEMP_MENU_TREE" ]
 	then
 		doResetWebGUI=true
+		restartHttpd=true
 		sed -i "\\~$MyWebPage~d" "$TEMP_MENU_TREE"
 		rm -f "$SCRIPT_WEBPAGE_DIR/$MyWebPage"
 		rm -f "$SCRIPT_WEBPAGE_DIR/$(echo "$MyWebPage" | cut -f1 -d'.').title"
 	fi
 
-	_FindandRemoveMenuAddOnsSection_ && doResetStyle=true
+	_FindandRemoveMenuAddOnsSection_
+
+	if [ -f "$TEMP_MENU_TREE" ] && \
+	   grep -qF 'index: "menu_Addons"' "$TEMP_MENU_TREE"
+	then
+		keepAddonsCSS=true
+	fi
 
 	if "$doResetWebGUI"
 	then
 		umount /www/require/modules/menuTree.js 2>/dev/null
 		mount -o bind "$TEMP_MENU_TREE" /www/require/modules/menuTree.js
-		if "$doResetStyle" && [ -f /tmp/index_style.css ] && \
+	fi
+
+	if [ -f /tmp/index_style.css ]
+	then
+		sed -i '/\.dropdown-content/d' /tmp/index_style.css
+		sed -i '/\.dropdown:hover[[:space:]]*\.dropdown-content/d' \
+			/tmp/index_style.css
+
+		umount /www/index_style.css 2>/dev/null
+
+		if "$keepAddonsCSS" && \
 		   grep -qF '.menu_Addons { background:' /tmp/index_style.css
 		then
+			mount -o bind /tmp/index_style.css /www/index_style.css
+		else
 			rm -f /tmp/index_style.css
-			umount /www/index_style.css 2>/dev/null
 		fi
-		if [ -f /tmp/state.js ] && \
-		   grep -qE 'function GenerateSiteMap|function AddDropdowns' /tmp/state.js
-		then
-			rm -f /tmp/state.js
-			umount /www/state.js 2>/dev/null
-		fi
+		restartHttpd=true
+	else
+		umount /www/index_style.css 2>/dev/null
 	fi
+
+	if [ -f "$TMP_STATE_JS" ] && \
+	   grep -qE 'function GenerateSiteMap|function AddDropdowns|function injectDropdowns|BEGIN:SCMERLIN_' "$TMP_STATE_JS"
+	then
+		rm -f "$TMP_STATE_JS"
+		umount /www/state.js 2>/dev/null
+		restartHttpd=true
+	fi
+
+	if "$restartHttpd"
+	then
+		/sbin/service restart_httpd >/dev/null 2>&1
+		Print_Output true "Restarted httpd after removing WebUI modifications" "$PASS"
+	fi
+
 	flock -u "$FD"
-	rm -rf "$SCRIPT_WEB_DIR" 2>/dev/null
+	rm -fr "$SCRIPT_WEB_DIR" 2>/dev/null
 
 	"$SCRIPT_DIR/S99tailtop" stop >/dev/null 2>&1
 	sleep 5
 
-	rm -rf "$SCRIPT_DIR"
+	rm -fr "$SCRIPT_DIR"
 
 	SETTINGSFILE="/jffs/addons/custom_settings.txt"
 	sed -i '/scmerlin_version_local/d' "$SETTINGSFILE"
@@ -3955,7 +4276,7 @@ then
 fi
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Oct-19] ##
+## Modified by Martinski W. [2026-Feb-18] ##
 ##----------------------------------------##
 case "$1" in
 	install)
@@ -3988,6 +4309,11 @@ case "$1" in
 			settingstate="$(echo "$3" | sed "s/${SCRIPT_NAME_LOWER}_DNSmasqWatchdog//")";
 			settingstate="$(echo "$settingstate" | tr 'A-Z' 'a-z')"
 			TailTaintDNSmasq "$settingstate"
+		elif echo "$3" | grep -qE "^${SCRIPT_NAME_LOWER}_WebUIMods"
+		then
+			settingstate="$(echo "$3" | sed "s/${SCRIPT_NAME_LOWER}_WebUIMods//")";
+			settingstate="$(echo "$settingstate" | tr 'A-Z' 'a-z')"
+			Extra_WebUI_Modifications "$settingstate"
 		elif echo "$3" | grep -qE "^${SCRIPT_NAME_LOWER}servicerestart"
 		then
 			rm -f "$SCRIPT_WEB_DIR/detect_service.js"
@@ -4162,7 +4488,7 @@ case "$1" in
             then
                 # In load-balance, trust the event's iface ($2) #
                 # don't touch the other file #
-                wanIFaceNum="$2"    # 0 or 1
+                wanIFaceNum="$2"    # 0 or 1 #
             else
                 # Don't trust the WAN Events in Failover/primary mode #
                 # Pick active by primary flags (fallback to connected state) #
@@ -4176,7 +4502,7 @@ case "$1" in
                 then
                     wanIFaceNum="1"
                 else
-                    # Prefer the event's iface if it is actually up
+                    # Prefer the event's iface if it is actually up #
                     if [ -n "$2" ] && _InterfaceUP_ "$2"
                     then
                         wanIFaceNum="$2"
@@ -4188,8 +4514,8 @@ case "$1" in
                         wanIFaceNum="1"
                     fi
                 fi
-                # In non-LB, clear the other WAN's file to avoid stale reads
-                otherIF=$([ "$wanIFaceNum" = "0" ] && echo 1 || echo 0)
+                # In non-LB, clear the other WAN file to avoid stale reads #
+                otherIF="$([ "$wanIFaceNum" = "0" ] && echo 1 || echo 0)"
                 rm -f "/tmp/wan${otherIF}_uptime.tmp"
             fi
 
@@ -4201,12 +4527,12 @@ case "$1" in
                 read -r wanIFaceNum timeSecs < "$wanIFaceFile"
             fi
 
-            # Write only when iface is truly usable in this context
+            # Write only when iface is truly usable in this context #
             if [ -n "$wanIFaceNum" ]
             then
                 echo "$wanIFaceNum $timeSecs" > "$wanIFaceFile"
             else
-                # Neither WAN is usable; clear both
+                # Neither WAN is usable; clear both #
                 rm -f /tmp/wan0_uptime.tmp /tmp/wan1_uptime.tmp
             fi
         elif [ "$3" = "stopped" ]  || \
@@ -4215,7 +4541,7 @@ case "$1" in
         then
             # Disconnected/other events: #
             # Clean up only the iface that raised the event (safe in all modes) #
-            if [ -n "$2" ] 
+            if [ -n "$2" ]
             then
                 rm -f "/tmp/wan${2}_uptime.tmp"
             fi
@@ -4229,6 +4555,11 @@ case "$1" in
 	forceupdate)
 		Update_Version force
 		exit 0
+	;;
+	amtmupdate)
+		shift
+		ScriptUpdateFromAMTM "$@"
+		exit "$?"
 	;;
 	postupdate)
 		Create_Dirs

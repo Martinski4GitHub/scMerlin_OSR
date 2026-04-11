@@ -1,16 +1,29 @@
 #!/bin/sh
+######################################################
+# Last Modified: 2026-Apr-11
+#-----------------------------------------------------
 # shellcheck disable=SC2039
+#-----------------------------------------------------
+
 trap '' SIGHUP
 
-/jffs/addons/scmerlin.d/tailtop &
+# Give priority to built-in binaries #
+export PATH="/bin:/usr/bin:/sbin:/usr/sbin:$PATH"
 
-while true; do
-	sleep 5
-	if [ "$(pidof tailtop | wc -w)" -lt 1 ]; then
+sleepSecs=120  #2 minutes#
+/jffs/addons/scmerlin.d/tailtop "$sleepSecs" &
+
+while true
+do
+	sleep 30
+	if [ "$(pidof tailtop | wc -w)" -lt 1 ]
+	then
 		logger -t scMerlin "tailtop dead, restarting..."
 		killall -q tailtop
 		sleep 5
-		/jffs/addons/scmerlin.d/tailtop &
+		/jffs/addons/scmerlin.d/tailtop "$sleepSecs" &
 		logger -t scMerlin "tailtop restarted"
 	fi
 done
+
+#EOF#

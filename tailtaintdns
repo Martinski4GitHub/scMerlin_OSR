@@ -1,13 +1,28 @@
 #!/bin/sh
+######################################################
+# Last Modified: 2026-Apr-11
+#-----------------------------------------------------
 # shellcheck disable=SC2039
 # shellcheck disable=SC3048
+#-----------------------------------------------------
+
 trap '' SIGHUP
+
+# Give priority to built-in binaries #
+export PATH="/bin:/usr/bin:/sbin:/usr/sbin:$PATH"
 
 tailfile="/tmp/syslog.log"
 
 renice 15 $$
-tail -F "$tailfile" | while read -r line; do
-if echo "$line" | grep -q "Comm: dnsmasq Tainted:"; then logger "dnsmasq tainted detected, restarting dnsmasq"; service restart_dnsmasq; fi
+tail -F "$tailfile" | while read -r line
+do
+	if echo "$line" | grep -q "Comm: dnsmasq Tainted:"
+	then
+	    logger "dnsmasq tainted detected, restarting dnsmasq"
+	    service restart_dnsmasq
+	fi
 done
 
 renice 0 $$
+
+#EOF#

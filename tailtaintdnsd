@@ -1,13 +1,23 @@
 #!/bin/sh
+######################################################
+# Last Modified: 2026-Apr-11
+#-----------------------------------------------------
 # shellcheck disable=SC2039
 # shellcheck disable=SC3048
+#-----------------------------------------------------
+
 trap '' SIGHUP
+
+# Give priority to built-in binaries #
+export PATH="/bin:/usr/bin:/sbin:/usr/sbin:$PATH"
 
 /jffs/addons/scmerlin.d/tailtaintdns &
 
-while true; do
+while true
+do
 	sleep 5
-	if [ "$(pidof tailtaintdns | wc -w)" -lt 1 ]; then
+	if [ "$(pidof tailtaintdns | wc -w)" -lt 1 ]
+	then
 		logger "tailtaintdns dead, restarting..."
 		killall -q tailtaintdns
 		sleep 5
@@ -15,3 +25,5 @@ while true; do
 		logger "tailtaintdns restarted"
 	fi
 done
+
+#EOF#

@@ -12,7 +12,7 @@
 ## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2026-Apr-11
+# Last Modified: 2026-Apr-15
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -32,9 +32,9 @@
 ### Start of script variables ###
 readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
-readonly SCM_VERSION="v2.5.49"
-readonly SCRIPT_VERSION="v2.5.49"
-readonly SCRIPT_VERSTAG="26041103"
+readonly SCM_VERSION="v2.5.50"
+readonly SCRIPT_VERSION="v2.5.50"
+readonly SCRIPT_VERSTAG="26041500"
 SCRIPT_BRANCH="develop"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -1676,34 +1676,39 @@ Create_Symlinks()
 	fi
 }
 
+##----------------------------------------##
+## Modified by Martinski W. [2026-Apr-15] ##
+##----------------------------------------##
 Auto_ServiceEvent()
 {
 	case $1 in
 		create)
-			if [ -f /jffs/scripts/service-event ]
+			if [ -s /jffs/scripts/service-event ]
 			then
-				STARTUPLINECOUNT=$(grep -c '# '"$SCRIPT_NAME" /jffs/scripts/service-event)
-				STARTUPLINECOUNTEX=$(grep -cx 'if echo "$2" | /bin/grep -q "'"$SCRIPT_NAME_LOWER"'"; then { /jffs/scripts/'"$SCRIPT_NAME_LOWER"' service_event "$@" & }; fi # '"$SCRIPT_NAME" /jffs/scripts/service-event)
+				STARTUPLINECOUNT="$(grep -c '# '"$SCRIPT_NAME" /jffs/scripts/service-event)"
+				STARTUPLINECOUNTEX="$(grep -cx 'if echo "$2" | /bin/grep -q "'"$SCRIPT_NAME_LOWER"'"; then { /jffs/scripts/'"$SCRIPT_NAME_LOWER"' service_event "$@" & }; fi # '"$SCRIPT_NAME" /jffs/scripts/service-event)"
 
-				if [ "$STARTUPLINECOUNT" -gt 1 ] || { [ "$STARTUPLINECOUNTEX" -eq 0 ] && [ "$STARTUPLINECOUNT" -gt 0 ]; }; then
+				if [ "$STARTUPLINECOUNT" -gt 1 ] || { [ "$STARTUPLINECOUNTEX" -eq 0 ] && [ "$STARTUPLINECOUNT" -gt 0 ]; }
+				then
 					sed -i -e '/# '"$SCRIPT_NAME"'/d' /jffs/scripts/service-event
 				fi
-
-				if [ "$STARTUPLINECOUNTEX" -eq 0 ]; then
+				if [ "$STARTUPLINECOUNTEX" -eq 0 ]
+				then
 					echo 'if echo "$2" | /bin/grep -q "'"$SCRIPT_NAME_LOWER"'"; then { /jffs/scripts/'"$SCRIPT_NAME_LOWER"' service_event "$@" & }; fi # '"$SCRIPT_NAME" >> /jffs/scripts/service-event
 				fi
 			else
 				echo "#!/bin/sh" > /jffs/scripts/service-event
-				echo "" >> /jffs/scripts/service-event
+				echo >> /jffs/scripts/service-event
 				echo 'if echo "$2" | /bin/grep -q "'"$SCRIPT_NAME_LOWER"'"; then { /jffs/scripts/'"$SCRIPT_NAME_LOWER"' service_event "$@" & }; fi # '"$SCRIPT_NAME" >> /jffs/scripts/service-event
-				chmod 0755 /jffs/scripts/service-event
 			fi
+			chmod 0755 /jffs/scripts/service-event
 		;;
 		delete)
-			if [ -f /jffs/scripts/service-event ]; then
-				STARTUPLINECOUNT=$(grep -i -c '# '"$SCRIPT_NAME" /jffs/scripts/service-event)
-
-				if [ "$STARTUPLINECOUNT" -gt 0 ]; then
+			if [ -s /jffs/scripts/service-event ]
+			then
+				STARTUPLINECOUNT="$(grep -i -c '# '"$SCRIPT_NAME" /jffs/scripts/service-event)"
+				if [ "$STARTUPLINECOUNT" -gt 0 ]
+				then
 					sed -i -e '/# '"$SCRIPT_NAME"'/d' /jffs/scripts/service-event
 				fi
 			fi
@@ -1718,54 +1723,57 @@ Auto_Startup()
 {
 	case $1 in
 		create)
-			if [ -f /jffs/scripts/post-mount ]
+			if [ -s /jffs/scripts/post-mount ]
 			then
-				STARTUPLINECOUNT=$(grep -i -c '# '"$SCRIPT_NAME$" /jffs/scripts/post-mount)
-
-				if [ "$STARTUPLINECOUNT" -gt 0 ]; then
-					sed -i -e '/# '"$SCRIPT_NAME$"'/d' /jffs/scripts/post-mount
+				STARTUPLINECOUNT="$(grep -i -c '# '"${SCRIPT_NAME}$" /jffs/scripts/post-mount)"
+				if [ "$STARTUPLINECOUNT" -gt 0 ]
+				then
+					sed -i -e '/# '"${SCRIPT_NAME}$"'/d' /jffs/scripts/post-mount
 				fi
 			fi
-			if [ -f /jffs/scripts/services-start ]
+			if [ -s /jffs/scripts/services-start ]
 			then
 				## Clean up erroneous entries ##
 				grep -iq '# '"${SCRIPT_NAME}[$]$" /jffs/scripts/services-start && \
 				sed -i -e '/# '"${SCRIPT_NAME}[$]$"'/d' /jffs/scripts/services-start
 
-				STARTUPLINECOUNT=$(grep -i -c '# '"$SCRIPT_NAME$" /jffs/scripts/services-start)
-				STARTUPLINECOUNTEX=$(grep -cx "/jffs/scripts/$SCRIPT_NAME_LOWER startup"' & # '"$SCRIPT_NAME$" /jffs/scripts/services-start)
+				STARTUPLINECOUNT="$(grep -i -c '# '"${SCRIPT_NAME}$" /jffs/scripts/services-start)"
+				STARTUPLINECOUNTEX="$(grep -cx "/jffs/scripts/$SCRIPT_NAME_LOWER startup"' & # '"${SCRIPT_NAME}$" /jffs/scripts/services-start)"
 
-				if [ "$STARTUPLINECOUNT" -gt 1 ] || { [ "$STARTUPLINECOUNTEX" -eq 0 ] && [ "$STARTUPLINECOUNT" -gt 0 ]; }; then
-					sed -i -e '/# '"$SCRIPT_NAME$"'/d' /jffs/scripts/services-start
+				if [ "$STARTUPLINECOUNT" -gt 1 ] || { [ "$STARTUPLINECOUNTEX" -eq 0 ] && [ "$STARTUPLINECOUNT" -gt 0 ]; }
+				then
+					sed -i -e '/# '"${SCRIPT_NAME}$"'/d' /jffs/scripts/services-start
 				fi
-
-				if [ "$STARTUPLINECOUNTEX" -eq 0 ]; then
+				if [ "$STARTUPLINECOUNTEX" -eq 0 ]
+				then
 					echo "/jffs/scripts/$SCRIPT_NAME_LOWER startup"' & # '"$SCRIPT_NAME" >> /jffs/scripts/services-start
 				fi
 			else
 				echo "#!/bin/sh" > /jffs/scripts/services-start
 				echo "" >> /jffs/scripts/services-start
 				echo "/jffs/scripts/$SCRIPT_NAME_LOWER startup"' & # '"$SCRIPT_NAME" >> /jffs/scripts/services-start
-				chmod 0755 /jffs/scripts/services-start
 			fi
+			chmod 0755 /jffs/scripts/services-start
 		;;
 		delete)
-			if [ -f /jffs/scripts/post-mount ]; then
-				STARTUPLINECOUNT=$(grep -i -c '# '"$SCRIPT_NAME$" /jffs/scripts/post-mount)
-
-				if [ "$STARTUPLINECOUNT" -gt 0 ]; then
-					sed -i -e '/# '"$SCRIPT_NAME$"'/d' /jffs/scripts/post-mount
+			if [ -s /jffs/scripts/post-mount ]
+			then
+				STARTUPLINECOUNT="$(grep -i -c '# '"${SCRIPT_NAME}$" /jffs/scripts/post-mount)"
+				if [ "$STARTUPLINECOUNT" -gt 0 ]
+				then
+					sed -i -e '/# '"${SCRIPT_NAME}$"'/d' /jffs/scripts/post-mount
 				fi
 			fi
-			if [ -f /jffs/scripts/services-start ]; then
+			if [ -s /jffs/scripts/services-start ]
+			then
 				## Clean up erroneous entries ##
 				grep -iq '# '"${SCRIPT_NAME}[$]$" /jffs/scripts/services-start && \
 				sed -i -e '/# '"${SCRIPT_NAME}[$]$"'/d' /jffs/scripts/services-start
 
-				STARTUPLINECOUNT=$(grep -i -c '# '"$SCRIPT_NAME$" /jffs/scripts/services-start)
-
-				if [ "$STARTUPLINECOUNT" -gt 0 ]; then
-					sed -i -e '/# '"$SCRIPT_NAME$"'/d' /jffs/scripts/services-start
+				STARTUPLINECOUNT="$(grep -i -c '# '"${SCRIPT_NAME}$" /jffs/scripts/services-start)"
+				if [ "$STARTUPLINECOUNT" -gt 0 ]
+				then
+					sed -i -e '/# '"${SCRIPT_NAME}$"'/d' /jffs/scripts/services-start
 				fi
 			fi
 		;;

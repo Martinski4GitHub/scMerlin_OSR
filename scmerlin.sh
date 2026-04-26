@@ -12,7 +12,7 @@
 ## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2026-Apr-15
+# Last Modified: 2026-Apr-26
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -34,7 +34,7 @@ readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
 readonly SCM_VERSION="v2.5.50"
 readonly SCRIPT_VERSION="v2.5.50"
-readonly SCRIPT_VERSTAG="26041500"
+readonly SCRIPT_VERSTAG="26042609"
 SCRIPT_BRANCH="develop"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -104,6 +104,11 @@ readonly branchxStr_TAG="[Branch: $SCRIPT_BRANCH]"
 readonly versionDev_TAG="${SCRIPT_VERSION}_${SCRIPT_VERSTAG}"
 readonly versionMod_TAG="$SCRIPT_VERSION on $ROUTER_MODEL"
 
+readonly NVRAM_TempShowVarFle="/tmp/var/tmp/${SCRIPT_NAME}_NVRAM_Show_$$.TMP"
+readonly NVRAM_TempShowFiltr1="(sys_uptime_now|rc_support|nc_setting_conf|setting_update_time)"
+readonly NVRAM_TempShowFiltr2="([0-3]:.*|asd_.*|asdfile_.*|TM_EULA.*|ASUS.*EULA.*|Ate_.*|.*login_timestamp=)"
+readonly NVRAM_TempShowFilter="^${NVRAM_TempShowFiltr2}|^${NVRAM_TempShowFiltr1}=|^$"
+
 # To support automatic script updates from AMTM #
 doScriptUpdateFromAMTM=true
 
@@ -160,12 +165,24 @@ if echo "$SUPPORTstr" | grep -qwo "wireguard"
 then WireGuard_Support=true ; fi
 
 ##-------------------------------------##
+## Added by Martinski W. [2026-Apr-26] ##
+##-------------------------------------##
+_NVRAM_GetTempShowVarsFile_()
+{
+   printf '' > "$NVRAM_TempShowVarFle"
+   nvram show 2>/dev/null | grep -vE "^$NVRAM_TempShowFilter" | sort -u | sort -d -t '=' -k 1 > "$NVRAM_TempShowVarFle"
+}
+
+##-------------------------------------##
 ## Added by Martinski W. [2025-Feb-15] ##
 ##-------------------------------------##
 GetWiFiVirtualInterfaceName()
 {
-   if [ $# -eq 0 ] || [ -z "$1" ] ; then echo "" ; return 1 ; fi
-   nvram show 2>/dev/null | grep -E -m1 "^wl[0-3]_ifname=${1}" | cut -d'_' -f1
+   if [ $# -eq 0 ] || [ -z "$1" ]
+   then echo ; return 1
+   fi
+   [ ! -s "$NVRAM_TempShowVarFle" ] && _NVRAM_GetTempShowVarsFile_
+   grep -E -m1 "^wl[0-3]_ifname=${1}" "$NVRAM_TempShowVarFle" | cut -d'_' -f1
 }
 
 ##----------------------------------------##
@@ -175,6 +192,8 @@ _GetWiFiBandsSupported_()
 {
    local wifiIFNameList  wifiIFName  wifiBandInfo  wifiBandName
    local wifi5GHzCount=0  wifi6GHzCount=0  wlvifName  wifiChnList
+
+   _NVRAM_GetTempShowVarsFile_
 
    if [ "$ROUTER_MODEL" = "XT12" ]     || \
       [ "$ROUTER_MODEL" = "GT-BE98" ]   || \
@@ -246,8 +265,6 @@ _GetWiFiBandsSupported_()
        esac
    done
 }
-
-_GetWiFiBandsSupported_
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2025-Feb-15] ##
@@ -463,18 +480,20 @@ _CheckFor_WireGuard_Clients_Available_()
 {
    local retCode=1
    local nvramTempFile="/tmp/${SCRIPT_NAME}_nvramShow_$$.txt"
+   local wrgdClntRegEx="^wgc[1-5]_.+"
 
    if ! "$WireGuard_Support"
    then return 1  #WireGuard NOT supported#
    fi
 
-   nvram show 2>/dev/null | grep -E "^wgc[1-5]_.+" > "$nvramTempFile"
+   [ ! -s "$NVRAM_TempShowVarFle" ] && _NVRAM_GetTempShowVarsFile_
+   grep -E "$wrgdClntRegEx" "$NVRAM_TempShowVarFle" > "$nvramTempFile"
+
    if [ ! -s "$nvramTempFile" ]
    then
        rm -f "$nvramTempFile"
        return 1  #WireGuard Clients NOT found#
    fi
-
    if grep -qE "^wgc[1-5]_enable=[1-2]$" "$nvramTempFile" || \
       { grep -qE "^wgc[1-5]_ppub=.+$" "$nvramTempFile" && \
         grep -qE "^wgc[1-5]_priv=.+$" "$nvramTempFile" && \
@@ -502,14 +521,16 @@ _IsWireGuard_Client_Configured_()
 
    local retCode=1
    local nvramTempFile="/tmp/${SCRIPT_NAME}_nvramShow_$$.txt"
+   local wrgdClntRegEx="^wgc${1}_.+"
 
-   nvram show 2>/dev/null | grep -E "^wgc${1}_.+" > "$nvramTempFile"
+   [ ! -s "$NVRAM_TempShowVarFle" ] && _NVRAM_GetTempShowVarsFile_
+   grep -E "$wrgdClntRegEx" "$NVRAM_TempShowVarFle" > "$nvramTempFile"
+
    if [ ! -s "$nvramTempFile" ]
    then
        rm -f "$nvramTempFile"
        return 1  #WireGuard Client NOT found#
    fi
-
    if grep -qE "^wgc${1}_enable=[1-2]$" "$nvramTempFile" || \
       { grep -qE "^wgc${1}_ppub=.+$" "$nvramTempFile" && \
         grep -qE "^wgc${1}_priv=.+$" "$nvramTempFile" && \
@@ -549,18 +570,20 @@ _CheckFor_WireGuard_Servers_Available_()
 {
    local retCode=1
    local nvramTempFile="/tmp/${SCRIPT_NAME}_nvramShow_$$.txt"
+   local wrgdSrvrRegEx="^wgs[1-2]_.+"
 
    if ! "$WireGuard_Support"
    then return 1  #WireGuard NOT supported#
    fi
 
-   nvram show 2>/dev/null | grep -E "^wgs[1-2]_.+" > "$nvramTempFile"
+   [ ! -s "$NVRAM_TempShowVarFle" ] && _NVRAM_GetTempShowVarsFile_
+   grep -E "$wrgdSrvrRegEx" "$NVRAM_TempShowVarFle" > "$nvramTempFile"
+
    if [ ! -s "$nvramTempFile" ]
    then
        rm -f "$nvramTempFile"
        return 1  #WireGuard Servers NOT found#
    fi
-
    if grep -qE "^wgs[1-2]_enable=[1-2]$" "$nvramTempFile" || \
       { grep -qE "^wgs[1-2]_pub=.+$" "$nvramTempFile"  && \
         grep -qE "^wgs[1-2]_priv=.+$" "$nvramTempFile" && \
@@ -587,14 +610,16 @@ _IsWireGuard_Server_Configured_()
 
    local retCode=1
    local nvramTempFile="/tmp/${SCRIPT_NAME}_nvramShow_$$.txt"
+   local wrgdSrvrRegEx="^wgs${1}_.+"
 
-   nvram show 2>/dev/null | grep -E "^wgs${1}_.+" > "$nvramTempFile"
+   [ ! -s "$NVRAM_TempShowVarFle" ] && _NVRAM_GetTempShowVarsFile_
+   grep -E "$wrgdSrvrRegEx" "$NVRAM_TempShowVarFle" > "$nvramTempFile"
+
    if [ ! -s "$nvramTempFile" ]
    then
        rm -f "$nvramTempFile"
        return 1  #WireGuard Server NOT found#
    fi
-
    if grep -qE "^wgs${1}_enable=[1-2]$" "$nvramTempFile" || \
       { grep -qE "^wgs${1}_pub=.+$" "$nvramTempFile"  && \
         grep -qE "^wgs${1}_priv=.+$" "$nvramTempFile" && \
@@ -633,14 +658,16 @@ _CheckFor_OpenVPN_Clients_Available_()
 {
    local retCode=1
    local nvramTempFile="/tmp/${SCRIPT_NAME}_nvramShow_$$.txt"
+   local ovpnClntRegEx="^vpn_client[1-5]_.+"
 
-   nvram show 2>/dev/null | grep -E "^vpn_client[1-5]_.+" > "$nvramTempFile"
+   [ ! -s "$NVRAM_TempShowVarFle" ] && _NVRAM_GetTempShowVarsFile_
+   grep -E "$ovpnClntRegEx" "$NVRAM_TempShowVarFle" > "$nvramTempFile"
+
    if [ ! -s "$nvramTempFile" ]
    then
        rm -f "$nvramTempFile"
        return 1  #OpenVPN Clients NOT found#
    fi
-
    if grep -qE "^vpn_client[1-5]_state=[1-3]$" "$nvramTempFile" || \
       { grep -qE "^vpn_client[1-5]_username=.+$" "$nvramTempFile" && \
         grep -qE "^vpn_client[1-5]_password=.+$" "$nvramTempFile" && \
@@ -666,14 +693,16 @@ _IsOpenVPN_Client_Configured_()
 
    local retCode=1
    local nvramTempFile="/tmp/${SCRIPT_NAME}_nvramShow_$$.txt"
+   local ovpnClntRegEx="^vpn_client${1}_.+"
 
-   nvram show 2>/dev/null | grep -E "^vpn_client${1}_.+" > "$nvramTempFile"
+   [ ! -s "$NVRAM_TempShowVarFle" ] && _NVRAM_GetTempShowVarsFile_
+   grep -E "$ovpnClntRegEx" "$NVRAM_TempShowVarFle" > "$nvramTempFile"
+
    if [ ! -s "$nvramTempFile" ]
    then
        rm -f "$nvramTempFile"
        return 1  #OpenVPN Client NOT found#
    fi
-
    if grep -qE "^vpn_client${1}_state=[1-3]$" "$nvramTempFile" || \
       { grep -qE "^vpn_client${1}_username=.+$" "$nvramTempFile" && \
         grep -qE "^vpn_client${1}_password=.+$" "$nvramTempFile" && \
@@ -696,13 +725,14 @@ _CheckFor_OpenVPN_Servers_Available_()
    local nvramTempFile="/tmp/${SCRIPT_NAME}_nvramShow_$$.txt"
    local ovpnSrvrRegEx="^(vpn_server[1-2]_state|vpn_serverx_start)="
 
-   nvram show 2>/dev/null | grep -E "^${ovpnSrvrRegEx}" > "$nvramTempFile"
+   [ ! -s "$NVRAM_TempShowVarFle" ] && _NVRAM_GetTempShowVarsFile_
+   grep -E "$ovpnSrvrRegEx" "$NVRAM_TempShowVarFle" > "$nvramTempFile"
+
    if [ ! -s "$nvramTempFile" ]
    then
        rm -f "$nvramTempFile"
        return 1  #OpenVPN Servers NOT found#
    fi
-
    if grep -qE "^vpn_server[1-2]_state=[1-3]$" "$nvramTempFile" || \
       grep -qE "^vpn_serverx_start=[12],([12][,]?)?" "$nvramTempFile"
    then retCode=0
@@ -726,13 +756,14 @@ _IsOpenVPN_Server_Configured_()
    local nvramTempFile="/tmp/${SCRIPT_NAME}_nvramShow_$$.txt"
    local ovpnSrvrRegEx="^(vpn_server${1}_state|vpn_serverx_start)="
 
-   nvram show 2>/dev/null | grep -E "^${ovpnSrvrRegEx}" > "$nvramTempFile"
+   [ ! -s "$NVRAM_TempShowVarFle" ] && _NVRAM_GetTempShowVarsFile_
+   grep -E "$ovpnSrvrRegEx" "$NVRAM_TempShowVarFle" > "$nvramTempFile"
+
    if [ ! -s "$nvramTempFile" ]
    then
        rm -f "$nvramTempFile"
        return 1  #OpenVPN Server NOT found#
    fi
-
    if grep -qE "^vpn_server${1}_state=[1-3]$" "$nvramTempFile" || \
       grep -qE "^vpn_serverx_start=([12][,])?${1}[,]?" "$nvramTempFile"
    then retCode=0
@@ -1425,6 +1456,7 @@ Update_Version()
 					chmod 0755 "/jffs/scripts/$SCRIPT_NAME_LOWER"
 					Set_Version_Custom_Settings local "$serverver"
 					Set_Version_Custom_Settings server "$serverver"
+					rm -f "$NVRAM_TempShowVarFle"
 					Clear_Lock
 					PressEnter
 					exec "$0"
@@ -1462,6 +1494,7 @@ Update_Version()
 		chmod 0755 "/jffs/scripts/$SCRIPT_NAME_LOWER"
 		Set_Version_Custom_Settings local "$serverver"
 		Set_Version_Custom_Settings server "$serverver"
+		rm -f "$NVRAM_TempShowVarFle"
 		Clear_Lock
 		if [ $# -lt 2 ] || [ -z "$2" ]
 		then
@@ -2329,7 +2362,9 @@ Shortcut_Script()
 {
 	case $1 in
 		create)
-			if [ -d /opt/bin ] && [ ! -f "/opt/bin/$SCRIPT_NAME_LOWER" ] && [ -f "/jffs/scripts/$SCRIPT_NAME_LOWER" ]
+			if [ -d /opt/bin ] && \
+			   [ ! -f "/opt/bin/$SCRIPT_NAME_LOWER" ] && \
+			   [ -f "/jffs/scripts/$SCRIPT_NAME_LOWER" ]
 			then
 				ln -s "/jffs/scripts/$SCRIPT_NAME_LOWER" /opt/bin
 				chmod 0755 "/opt/bin/$SCRIPT_NAME_LOWER"
@@ -3032,7 +3067,7 @@ _Menu_Services_()
 
 	while true
 	do
-		printf "Choose an option:  "
+		printf " Choose an option:  "
 		read -r menuOption
 		case "$menuOption" in
 			1)
@@ -3241,7 +3276,7 @@ _Menu_OpenVPN_()
 
 	while true
 	do
-		printf "Choose an option:  "
+		printf " Choose an option:  "
 		read -r menuOption
 		case "$menuOption" in
 			c1|c2|c3|c4|c5)
@@ -3348,7 +3383,7 @@ _Menu_WireGuard_()
 
 	while true
 	do
-		printf "Choose an option:  "
+		printf " Choose an option:  "
 		read -r menuOption
 		case "$menuOption" in
 			c1|c2|c3|c4|c5)
@@ -3421,7 +3456,7 @@ _Menu_RouterUtilities_()
 
 	while true
 	do
-		printf "Choose an option:  "
+		printf " Choose an option:  "
 		read -r menuOption
 		case "$menuOption" in
 			c)
@@ -3647,7 +3682,7 @@ _Menu_ToggleOptions_()
 
 	while true
 	do
-		printf "Choose an option:  "
+		printf " Choose an option:  "
 		read -r menuOption
 		case "$menuOption" in
 			ntp)
@@ -3710,10 +3745,11 @@ _Menu_ToggleOptions_()
 ##----------------------------------------##
 MainMenu()
 {
-	local menuOption
+	local menuOption  exitMenu=false
 	local NTP_WATCHDOG_STATUS=""  NTP_READY_CHECK_STATUS=""  TAILTAINT_DNS_STATUS=""
 	isInteractiveMenuMode=true
 
+	ScriptHeader
 	printf " WebUI for %s is available at:\n" "$SCRIPT_NAME"
 	printf " ${SETTING}%s${CLEARFORMAT}\n\n" "$(Get_WebUI_URL)"
 
@@ -3731,7 +3767,7 @@ MainMenu()
 
 	while true
 	do
-		printf "Choose an option:  "
+		printf " Choose an option:  "
 		read -r menuOption
 		case "$menuOption" in
 			s)
@@ -3783,7 +3819,8 @@ MainMenu()
 			e)
 				ScriptHeader
 				printf "\n${BOLD}Thanks for using %s!${CLEARFORMAT}\n\n\n" "$SCRIPT_NAME"
-				exit 0
+				exitMenu=true
+				break
 				;;
 			z)
 				printf "\n${BOLD}Are you sure you want to uninstall %s? (y/n)${CLEARFORMAT}  " "$SCRIPT_NAME"
@@ -3797,6 +3834,7 @@ MainMenu()
 						:
 					;;
 				esac
+				break
 				;;
 			*)
 				_HandleInvalidMenuOption_
@@ -3806,8 +3844,9 @@ MainMenu()
 		esac
 	done
 
-	ScriptHeader
-	MainMenu
+	[ "$exitMenu" = "false" ] && MainMenu
+	rm -f "$NVRAM_TempShowVarFle"
+	return 0
 }
 
 Check_Requirements()
@@ -3882,7 +3921,7 @@ Menu_Install()
 
 	Download_File "$SCRIPT_REPO/LICENSE" "$SCRIPT_DIR/LICENSE"
 
-	ScriptHeader
+	_GetWiFiBandsSupported_
 	MainMenu
 }
 
@@ -4081,14 +4120,14 @@ Menu_Uninstall()
 
 	"$SCRIPT_DIR/S99tailtop" stop >/dev/null 2>&1
 	sleep 5
-
 	rm -fr "$SCRIPT_DIR"
 
 	SETTINGSFILE="/jffs/addons/custom_settings.txt"
 	sed -i '/scmerlin_version_local/d' "$SETTINGSFILE"
 	sed -i '/scmerlin_version_server/d' "$SETTINGSFILE"
 
-	rm -f "/jffs/scripts/$SCRIPT_NAME_LOWER" 2>/dev/null
+	rm -f "$NVRAM_TempShowVarFle"
+	rm -f "/jffs/scripts/$SCRIPT_NAME_LOWER"
 	Clear_Lock
 	Print_Output true "Uninstall completed" "$PASS"
 }
@@ -4269,6 +4308,7 @@ fi
 ##----------------------------------------##
 if [ $# -eq 0 ] || [ -z "$1" ]
 then
+	_GetWiFiBandsSupported_
 	isInteractiveMenuMode=true
 	Create_Dirs
 	Upgrade_StateJS
@@ -4281,7 +4321,6 @@ then
 	_InstallWanEventHook_ create 2>/dev/null
 	Process_Upgrade
 	_CheckFor_WebGUI_Page_
-	ScriptHeader
 	MainMenu
 	exit 0
 fi
@@ -4451,6 +4490,7 @@ case "$1" in
 				service restart_"$srvname" >/dev/null 2>&1
 				echo 'var servicestatus = "Done";' > "$SCRIPT_WEB_DIR/detect_service.js"
 			fi
+			rm -f "$NVRAM_TempShowVarFle"
 		elif [ "$3" = "${SCRIPT_NAME_LOWER}checkupdate" ]
 		then
 			Update_Check

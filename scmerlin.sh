@@ -12,7 +12,7 @@
 ## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2026-Jun-24
+# Last Modified: 2026-Aug-01
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -34,7 +34,7 @@ readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
 readonly SCM_VERSION="v2.5.50"
 readonly SCRIPT_VERSION="v2.5.50"
-readonly SCRIPT_VERSTAG="26062400"
+readonly SCRIPT_VERSTAG="26080100"
 SCRIPT_BRANCH="develop"
 SCRIPT_REPO="https://raw.githubusercontent.com/AMTM-OSR/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -345,22 +345,34 @@ GetTemperatureValue()
            else echo "[WiFi Interface '${theIFname}' is DISABLED]"
            fi
        else
-           echo "$theTemprtr" | awk -F' ' '{printf "%.1f\n", $1/2+20}'
+           echo "$theTemprtr" | awk -F' ' '{printf "%.1f\n", ($1/2) + 20}'
        fi
    fi
 }
+
+##-------------------------------------##
+## Added by Martinski W. [2026-Jul-31] ##
+##-------------------------------------##
+_CelsiusToFahrenheit_()
+{ echo "$1" | awk '{printf "%.1f", ($1 * 1.8) + 32}' ; }
 
 ##-------------------------------------##
 ## Added by Martinski W. [2025-Feb-15] ##
 ##-------------------------------------##
 GetTemperatureString()
 {
+    local tFahrenheit
     if [ $# -eq 0 ] || [ -z "$1" ]
-    then printf "${REDct}*Unknown*${CLRct}"
+    then
+        printf "${REDct}*Unknown*${CLRct}"
+        return 1
     fi
     if ! echo "$1" | grep -qE "^[0-9].*"
-    then printf "${REDct}%s${CLRct}" "$theTemptrVal"
-    else printf "${GRNct}%s°C${CLRct}" "$theTemptrVal"
+    then
+        printf "${REDct}%s${CLRct}" "$1"
+    else
+        tFahrenheit="$(_CelsiusToFahrenheit_ "$1")"
+        printf "${GRNct}%.1f°C  [%.1f°F]${CLRct}" "$1" "$tFahrenheit"
     fi
 }
 
@@ -386,7 +398,7 @@ Print_Output()
 		esac
 		logger -t "${SCRIPT_NAME}_[$$]" -p $prioNum "$2"
 	fi
-	printf "${BOLD}${3}%s${CLEARFORMAT}\n\n" "$2"
+	printf "${BOLD}${3}${2}${CLRct}\n\n"
 }
 
 Firmware_Version_Check()
@@ -771,6 +783,51 @@ _IsOpenVPN_Server_Configured_()
 
    rm -f "$nvramTempFile"
    return "$retCode"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2026-Jul-31] ##
+##-------------------------------------##
+_Check_DDNS_Enabled_()
+{
+	local DDNS_Enabled="$(nvram get ddns_enable_x)"
+	if ! Validate_Number "$DDNS_Enabled"
+	then DDNS_Enabled=0
+	fi
+	if [ "$DDNS_Enabled" -eq 1 ]
+	then return 0
+	else return 1
+	fi
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2026-Jul-31] ##
+##-------------------------------------##
+_Check_FTP_Enabled_()
+{
+	local FTP_Enabled="$(nvram get enable_ftp)"
+	if ! Validate_Number "$FTP_Enabled"
+	then FTP_Enabled=0
+	fi
+	if [ "$FTP_Enabled" -eq 1 ]
+	then return 0
+	else return 1
+	fi
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2026-Jul-31] ##
+##-------------------------------------##
+_Check_SAMBA_Enabled_()
+{
+	local SAMBA_Enabled="$(nvram get enable_samba)"
+	if ! Validate_Number "$SAMBA_Enabled"
+	then SAMBA_Enabled=0
+	fi
+	if [ "$SAMBA_Enabled" -eq 1 ]
+	then return 0
+	else return 1
+	fi
 }
 
 ##----------------------------------------##
@@ -2391,6 +2448,23 @@ PressEnter()
 	return 0
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2026-Jul-31] ##
+##-------------------------------------##
+Get_Memory_Usage()
+{
+   free ; echo
+   grep -E '^Mem[TFA].*:[[:blank:]]+.*' /proc/meminfo
+   grep -E '^(Buffers|Cached):[[:blank:]]+.*' /proc/meminfo
+   grep -E '^(CommitLimit|Committed_AS):[[:blank:]]+.*' /proc/meminfo
+   if [ "$(wc -l < /proc/swaps)" -ge 2 ]
+   then
+       echo ; printf "Swappiness = "
+       cat /proc/sys/vm/swappiness
+       grep -E '^Swap[TFC].*:[[:blank:]]+.*' /proc/meminfo
+   fi
+}
+
 ##----------------------------------------------##
 ## Added/Modified by Martinski W. [2024-Jun-28] ##
 ##----------------------------------------------##
@@ -2927,7 +3001,7 @@ _NTPMerlin_GetTimeServerIDfromConfig_()
 ##-------------------------------------##
 _Get_CPU_Temptr_ProcDMUtemp_()
 {
-    local rawTemp  charPos3  cpuTemp
+    local rawTemp  charPos3  cpuTemp  tFahrenheit
     rawTemp="$(awk -F ' ' '{print $4}' "$CPU_Temptr_ProcDMUtemp")"
 
     ## To check for a possible 3-digit value ##
@@ -2936,7 +3010,8 @@ _Get_CPU_Temptr_ProcDMUtemp_()
     then cpuTemp="${rawTemp:0:3}.0"
     else cpuTemp="${rawTemp:0:2}.0"
     fi
-    printf "${cpuTemp}°C\n"
+    tFahrenheit="$(_CelsiusToFahrenheit_ "$cpuTemp")"
+    printf "%.1f°C  [%.1f°F]\n" "$cpuTemp" "$tFahrenheit"
 }
 
 ##-------------------------------------##
@@ -2944,10 +3019,11 @@ _Get_CPU_Temptr_ProcDMUtemp_()
 ##-------------------------------------##
 _Get_CPU_Temptr_ThermalZone_()
 {
-    local rawTemp  cpuTemp
+    local rawTemp  cpuTemp  tFahrenheit
     rawTemp="$(cat "$CPU_Temptr_ThermalZone")"
     cpuTemp="$((rawTemp / 1000)).$(printf "%03d" "$((rawTemp % 1000))")"
-    printf "%.1f°C\n" "$cpuTemp"
+    tFahrenheit="$(_CelsiusToFahrenheit_ "$cpuTemp")"
+    printf "%.1f°C  [%.1f°F]\n" "$cpuTemp" "$tFahrenheit"
 }
 
 ##-------------------------------------##
@@ -2955,10 +3031,11 @@ _Get_CPU_Temptr_ThermalZone_()
 ##-------------------------------------##
 _Get_CPU_Temptr_SysPowerCPU_()
 {
-    local rawTemp  cpuTemp
+    local rawTemp  cpuTemp  tFahrenheit
     rawTemp="$(cat "$CPU_Temptr_SysPowerCPU")"
     cpuTemp="$(echo "$rawTemp" | awk -F' ' '{printf $2}')"
-    printf "%.1f°C\n" "$cpuTemp"
+    tFahrenheit="$(_CelsiusToFahrenheit_ "$cpuTemp")"
+    printf "%.1f°C  [%.1f°F]\n" "$cpuTemp" "$tFahrenheit"
 }
 
 ##-------------------------------------##
@@ -3004,15 +3081,15 @@ _Menu_Services_()
 	printf " ${BOLDUNDERLN}${GRNct}Services${CLRct}\n"
 	printf " ${BOLD}${WARN}(Selecting an option will restart the service)${CLRct}\n\n"
 	printf "   ${GRNct}1${CLRct}. DNS/DHCP Server (dnsmasq)\n"
-	printf "   ${GRNct}2${CLRct}. Internet connection\n"
+	printf "   ${GRNct}2${CLRct}. Internet connection (WAN)\n"
 	printf "   ${GRNct}3${CLRct}. Web Interface (httpd)\n"
-	printf "   ${GRNct}4${CLRct}. WiFi\n"
+	printf "   ${GRNct}4${CLRct}. WiFi (wireless radios)\n"
 
-	ENABLED_FTP="$(nvram get enable_ftp)"
-	if ! Validate_Number "$ENABLED_FTP"
-	then ENABLED_FTP=0
+	if _Check_FTP_Enabled_
+	then ENABLED_FTP=true
+	else ENABLED_FTP=false
 	fi
-	if [ "$ENABLED_FTP" -eq 1 ]
+	if "$ENABLED_FTP"
 	then
 		colorCT="$GRNct"
 		ftpsTagStr=""
@@ -3022,11 +3099,11 @@ _Menu_Services_()
 	fi
 	printf "   ${colorCT}5${CLRct}. FTP Server (vsftpd) ${ftpsTagStr}\n"
 
-	ENABLED_SAMBA="$(nvram get enable_samba)"
-	if ! Validate_Number "$ENABLED_SAMBA"
-	then ENABLED_SAMBA=0
+	if _Check_SAMBA_Enabled_
+	then ENABLED_SAMBA=true
+	else ENABLED_SAMBA=false
 	fi
-	if [ "$ENABLED_SAMBA" -eq 1 ]
+	if "$ENABLED_SAMBA"
 	then
 		colorCT="$GRNct"
 		sambaTagStr=""
@@ -3036,11 +3113,11 @@ _Menu_Services_()
 	fi
 	printf "   ${colorCT}6${CLRct}. Samba ${sambaTagStr}\n"
 
-	ENABLED_DDNS="$(nvram get ddns_enable_x)"
-	if ! Validate_Number "$ENABLED_DDNS"
-	then ENABLED_DDNS=0
+	if _Check_DDNS_Enabled_
+	then ENABLED_DDNS=true
+	else ENABLED_DDNS=false
 	fi
-	if [ "$ENABLED_DDNS" -eq 1 ]
+	if "$ENABLED_DDNS"
 	then
 		colorCT="$GRNct"
 		ddnsTagStr=""
@@ -3080,7 +3157,7 @@ _Menu_Services_()
 				printf "\n"
 				while true
 				do
-					printf "\n${BOLD}Internet connection will take 30s-60s to reconnect. Continue? (y/n)${CLEARFORMAT}  "
+					printf "\n${BOLD}Internet connection will take 30s-60s to reconnect. Continue? (y/n)${CLRct}  "
 					read -r confirm
 					case "$confirm" in
 						y|Y)
@@ -3108,34 +3185,34 @@ _Menu_Services_()
 				break
 			;;
 			5)
-				if [ "$ENABLED_FTP" -eq 1 ]
+				if "$ENABLED_FTP"
 				then
 					printf "\n"
 					service restart_ftpd >/dev/null 2>&1
 				else
-					printf "\n${BOLD}${ERR}Invalid selection (FTP is NOT enabled)${CLEARFORMAT}\n\n"
+					printf "\n${BOLD}${ERR}Invalid selection (FTP is NOT enabled)${CLRct}\n\n"
 				fi
 				PressEnter
 				break
 			;;
 			6)
-				if [ "$ENABLED_SAMBA" -eq 1 ]
+				if "$ENABLED_SAMBA"
 				then
 					printf "\n"
 					service restart_samba >/dev/null 2>&1
 				else
-					printf "\n${BOLD}${ERR}Invalid selection (Samba is NOT enabled)${CLEARFORMAT}\n\n"
+					printf "\n${BOLD}${ERR}Invalid selection (Samba is NOT enabled)${CLRct}\n\n"
 				fi
 				PressEnter
 				break
 			;;
 			7)
-				if [ "$ENABLED_DDNS" -eq 1 ]
+				if "$ENABLED_DDNS"
 				then
 					printf "\n"
 					service restart_ddns >/dev/null 2>&1
 				else
-					printf "\n${BOLD}${ERR}Invalid selection (DDNS client NOT enabled)${CLEARFORMAT}\n\n"
+					printf "\n${BOLD}${ERR}Invalid selection (DDNS client NOT enabled)${CLRct}\n\n"
 				fi
 				PressEnter
 				break
@@ -3176,7 +3253,7 @@ _Menu_Services_()
 					then
 						while true
 						do
-							printf "\n${BOLD}Are you sure you want to restart all Entware services? (y/n)${CLEARFORMAT}  "
+							printf "\n${BOLD}Are you sure you want to restart all Entware services? (y/n)${CLRct}  "
 							read -r confirm
 							case "$confirm" in
 								y|Y)
@@ -3191,7 +3268,7 @@ _Menu_Services_()
 						Clear_Lock
 					fi
 				else
-					printf "\n${BOLD}${ERR}Invalid selection (Entware NOT installed)${CLEARFORMAT}\n\n"
+					printf "\n${BOLD}${ERR}Invalid selection (Entware NOT installed)${CLRct}\n\n"
 				fi
 				PressEnter
 				break
@@ -3439,7 +3516,7 @@ _Menu_WireGuard_()
 _Menu_RouterUtilities_()
 {
 	local menuOption  exitMenu=false
-	local program  cpuTemptrCelsius  theTemptrVal
+	local program  cpuTemptr  wifiTemptr
 
 	ScriptHeader
 	printf " ${BOLDUNDERLN}${GRNct}Router Utilities${CLEARFORMAT}\n\n"
@@ -3471,7 +3548,7 @@ _Menu_RouterUtilities_()
 						program=""
 						while true
 						do
-							printf "\n${BOLD}Would you like to install htop (enhanced version of top)? (y/n)${CLEARFORMAT}  "
+							printf "\n${BOLD}Would you like to install htop (enhanced version of top)? (y/n)${CLRct}  "
 							read -r confirm
 							case "$confirm" in
 								y|Y)
@@ -3500,7 +3577,7 @@ _Menu_RouterUtilities_()
 			m)
 				ScriptHeader
 				printf "\n"
-				free
+				Get_Memory_Usage
 				printf "\n"
 				PressEnter
 				break
@@ -3530,9 +3607,9 @@ _Menu_RouterUtilities_()
 			t)
 				ScriptHeader
 				printf "\n${GRNct}${BOLDUNDERLN}Temperatures${CLRct}\n\n"
-				if cpuTemptrCelsius="$(_Get_CPU_Temperature_)"
+				if cpuTemptr="$(_Get_CPU_Temperature_)"
 				then
-					printf "CPU:\t ${GRNct}%s${CLRct}\n" "$cpuTemptrCelsius"
+					printf "CPU:\t ${GRNct}%s${CLRct}\n" "$cpuTemptr"
 				else
 					printf "CPU:\t ${REDct}[N/A]${CLRct}\n"
 				fi
@@ -3542,8 +3619,8 @@ _Menu_RouterUtilities_()
 				##----------------------------------------##
 				if "$Band_24G_Support"
 				then
-					theTemptrVal="$(GetTemperatureValue "2.4GHz")"
-					printf "2.4 GHz: %s\n" "$(GetTemperatureString "$theTemptrVal")"
+					wifiTemptr="$(GetTemperatureValue "2.4GHz")"
+					printf "2.4 GHz: %s\n" "$(GetTemperatureString "$wifiTemptr")"
 				fi
 
 				if [ "$ROUTER_MODEL" = "RT-AC87U" ] || [ "$ROUTER_MODEL" = "RT-AC87R" ]
@@ -3555,28 +3632,28 @@ _Menu_RouterUtilities_()
 
 				if "$Band_5G_2_Support"
 				then
-					theTemptrVal="$(GetTemperatureValue "5GHz_1")"
-					printf "5 GHz-1: %s\n" "$(GetTemperatureString "$theTemptrVal")"
+					wifiTemptr="$(GetTemperatureValue "5GHz_1")"
+					printf "5 GHz-1: %s\n" "$(GetTemperatureString "$wifiTemptr")"
 
-					theTemptrVal="$(GetTemperatureValue "5GHz_2")"
-					printf "5 GHz-2: %s\n" "$(GetTemperatureString "$theTemptrVal")"
+					wifiTemptr="$(GetTemperatureValue "5GHz_2")"
+					printf "5 GHz-2: %s\n" "$(GetTemperatureString "$wifiTemptr")"
 				elif "$Band_5G_1_Support"
 				then
-					theTemptrVal="$(GetTemperatureValue "5GHz_1")"
-					printf "5 GHz:   %s\n" "$(GetTemperatureString "$theTemptrVal")"
+					wifiTemptr="$(GetTemperatureValue "5GHz_1")"
+					printf "5 GHz:   %s\n" "$(GetTemperatureString "$wifiTemptr")"
 				fi
 
 				if "$Band_6G_2_Support"
 				then
-					theTemptrVal="$(GetTemperatureValue "6GHz_1")"
-					printf "6 GHz-1: %s\n" "$(GetTemperatureString "$theTemptrVal")"
+					wifiTemptr="$(GetTemperatureValue "6GHz_1")"
+					printf "6 GHz-1: %s\n" "$(GetTemperatureString "$wifiTemptr")"
 
-					theTemptrVal="$(GetTemperatureValue "6GHz_2")"
-					printf "6 GHz-2: %s\n" "$(GetTemperatureString "$theTemptrVal")"
+					wifiTemptr="$(GetTemperatureValue "6GHz_2")"
+					printf "6 GHz-2: %s\n" "$(GetTemperatureString "$wifiTemptr")"
 				elif "$Band_6G_1_Support"
 				then
-					theTemptrVal="$(GetTemperatureValue "6GHz_1")"
-					printf "6 GHz:   %s\n" "$(GetTemperatureString "$theTemptrVal")"
+					wifiTemptr="$(GetTemperatureValue "6GHz_1")"
+					printf "6 GHz:   %s\n" "$(GetTemperatureString "$wifiTemptr")"
 				fi
 				echo ; PressEnter
 				break
@@ -3594,10 +3671,10 @@ _Menu_RouterUtilities_()
 				do
 					if [ "$ROUTER_MODEL" = "RT-AC86U" ]
 					then
-						printf "\n${BOLD}${WARN}Remote reboots are not recommend for %s${CLEARFORMAT}" "$ROUTER_MODEL"
-						printf "\n${BOLD}${WARN}Some %s fail to reboot correctly and require a manual power cycle${CLEARFORMAT}\n" "$ROUTER_MODEL"
+						printf "\n${BOLD}${WARN}Remote reboots are not recommend for %s${CLRct}" "$ROUTER_MODEL"
+						printf "\n${BOLD}${WARN}Some %s fail to reboot correctly and require a manual power cycle${CLRct}\n" "$ROUTER_MODEL"
 					fi
-					printf "\n${BOLD}Are you sure you want to reboot? (y/n)${CLEARFORMAT}  "
+					printf "\n${BOLD}Are you sure you want to reboot? (y/n)${CLRct}  "
 					read -r confirm
 					case "$confirm" in
 						y|Y)
@@ -3751,7 +3828,7 @@ MainMenu()
 
 	ScriptHeader
 	printf " WebUI for %s is available at:\n" "$SCRIPT_NAME"
-	printf " ${SETTING}%s${CLEARFORMAT}\n\n" "$(Get_WebUI_URL)"
+	printf " ${SETTING}%s${CLRct}\n\n" "$(Get_WebUI_URL)"
 
 	printf "   ${GRNct}s${CLRct}. Services\n\n"
 	printf "   ${GRNct}o${CLRct}. OpenVPN\n\n"
@@ -3818,12 +3895,12 @@ MainMenu()
 				;;
 			e)
 				ScriptHeader
-				printf "\n${BOLD}Thanks for using %s!${CLEARFORMAT}\n\n\n" "$SCRIPT_NAME"
+				printf "\n${BOLD}Thanks for using %s!${CLRct}\n\n\n" "$SCRIPT_NAME"
 				exitMenu=true
 				break
 				;;
 			z)
-				printf "\n${BOLD}Are you sure you want to uninstall %s? (y/n)${CLEARFORMAT}  " "$SCRIPT_NAME"
+				printf "\n${BOLD}Are you sure you want to uninstall %s? (y/n)${CLRct}  " "$SCRIPT_NAME"
 				read -r confirm
 				case "$confirm" in
 					y|Y)
@@ -3851,7 +3928,7 @@ MainMenu()
 
 Check_Requirements()
 {
-	CHECKSFAILED="false"
+	CHECKSFAILED=false
 
 	if [ "$(nvram get jffs2_scripts)" -ne 1 ]
 	then
@@ -3864,7 +3941,7 @@ Check_Requirements()
 	then
 		Print_Output false "Unsupported firmware version detected" "$ERR"
 		Print_Output false "$SCRIPT_NAME requires Merlin 384.15/384.13_4 or Fork 43E5 (or later)" "$ERR"
-		CHECKSFAILED="true"
+		CHECKSFAILED=true
 	fi
 
 	if [ "$CHECKSFAILED" = "false" ]; then
@@ -4372,10 +4449,7 @@ case "$1" in
 
 			if [ "$srvname" = "vsftpd" ]
 			then
-				ENABLED_FTP="$(nvram get enable_ftp)"
-				if ! Validate_Number "$ENABLED_FTP"
-				then ENABLED_FTP=0; fi
-				if [ "$ENABLED_FTP" -eq 1 ]
+				if _Check_FTP_Enabled_
 				then
 					service restart_ftpd >/dev/null 2>&1
 					echo 'var servicestatus = "Done";' > "$SCRIPT_WEB_DIR/detect_service.js"
@@ -4384,10 +4458,7 @@ case "$1" in
 				fi
 			elif [ "$srvname" = "samba" ]
 			then
-				ENABLED_SAMBA="$(nvram get enable_samba)"
-				if ! Validate_Number "$ENABLED_SAMBA"
-				then ENABLED_SAMBA=0; fi
-				if [ "$ENABLED_SAMBA" -eq 1 ]
+				if _Check_SAMBA_Enabled_
 				then
 					service restart_samba >/dev/null 2>&1
 					echo 'var servicestatus = "Done";' > "$SCRIPT_WEB_DIR/detect_service.js"
@@ -4396,10 +4467,7 @@ case "$1" in
 				fi
 			elif [ "$srvname" = "ddns" ]
 			then
-				ENABLED_DDNS="$(nvram get ddns_enable_x)"
-				if ! Validate_Number "$ENABLED_DDNS"
-				then ENABLED_DDNS=0; fi
-				if [ "$ENABLED_DDNS" -eq 1 ]
+				if _Check_DDNS_Enabled_
 				then
 					service restart_ddns >/dev/null 2>&1
 					echo 'var servicestatus = "Done";' > "$SCRIPT_WEB_DIR/detect_service.js"
@@ -4598,6 +4666,73 @@ case "$1" in
             fi
         fi
         exit 0
+	;;
+	restart_ddns)
+		if _Check_DDNS_Enabled_
+		then
+			Print_Output true "\nRestarting DDNS service ..." "$PASS"
+			service restart_ddns >/dev/null 2>&1
+			sleep 2
+		else
+			Print_Output true "\nInvalid request: DDNS client is NOT enabled" "$ERR"
+		fi
+		exit 0
+	;;
+	restart_ovpnserver1 | restart_ovpnserver2)
+		vpnNum="$(echo "$1" | sed 's/^restart_ovpnserver//')"
+		if _IsOpenVPN_Server_Configured_ "$vpnNum"
+		then
+			Print_Output true "\nRestarting OpenVPN Server $vpnNum ..." "$PASS"
+			service "restart_vpnserver$vpnNum" >/dev/null 2>&1
+			sleep 2
+		else
+			Print_Output true "\nInvalid request: OpenVPN Server $vpnNum is *NOT* enabled" "$ERR"
+		fi
+		exit 0
+	;;
+	restart_ovpnclient1 | restart_ovpnclient2 | \
+    restart_ovpnclient3 | restart_ovpnclient4 | restart_ovpnclient5)
+		vpnNum="$(echo "$1" | sed 's/^restart_ovpnclient//')"
+		if _IsOpenVPN_Client_Configured_ "$vpnNum"
+		then
+			Print_Output true "\nRestarting OpenVPN Client $vpnNum ..." "$PASS"
+			service "restart_vpnclient$vpnNum" >/dev/null 2>&1
+			sleep 2
+		else
+			Print_Output true "\nInvalid request: OpenVPN Client $vpnNum is *NOT* configured" "$ERR"
+		fi
+		exit 0
+	;;
+	restart_wgserver1)
+		vpnNum=1  ##Only ONE WireGuard Server available##
+		if _IsWireGuard_Server_Configured_ "$vpnNum"
+		then
+			Print_Output true "\nRestarting WireGuard Server $vpnNum ..." "$PASS"
+			_Restart_WireGuard_Server_ "$vpnNum"
+			sleep 2
+		elif "$WireGuard_Support"
+		then
+			Print_Output true "\nInvalid request: WireGuard Server $vpnNum is *NOT* configured" "$ERR"
+		else
+			Print_Output true "\nWireGuard is *NOT* supported on this router" "$ERR"
+		fi
+		exit 0
+	;;
+	restart_wgclient1 | restart_wgclient2 | \
+    restart_wgclient3 | restart_wgclient4 | restart_wgclient5)
+		vpnNum="$(echo "$1" | sed 's/^restart_wgclient//')"
+		if _IsWireGuard_Client_Configured_ "$vpnNum"
+		then
+			Print_Output true "\nRestarting WireGuard Client $vpnNum ..." "$PASS"
+			_Restart_WireGuard_Client_ "$vpnNum"
+			sleep 2
+		elif "$WireGuard_Support"
+		then
+			Print_Output true "\nInvalid request: WireGuard Client $vpnNum is *NOT* configured" "$ERR"
+		else
+			Print_Output true "\nWireGuard is *NOT* supported on this router" "$ERR"
+		fi
+		exit 0
 	;;
 	update)
 		Update_Version

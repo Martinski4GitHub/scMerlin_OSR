@@ -1,5 +1,5 @@
 /**----------------------------**/
-/** Last Modified: 2026-Jun-24 **/
+/** Last Modified: 2026-Jul-24 **/
 /**----------------------------**/
 
 var arrayproclistlines = [];
@@ -79,7 +79,7 @@ function initial()
 		servicectablehtml += BuildServiceTable(srvnamelist[i],srvdesclist[i],srvnamevisiblelist[i],i);
 	}
 	$('#table_config').after(servicectablehtml);
-
+	$('#temptrUnitsF').prop('checked',unitsFahrenheit);
 	document.formScriptActions.action_script.value='start_scmerlingetaddonpages;start_scmerlingetcronjobs;start_scmerlingetwanuptime';
 	document.formScriptActions.submit();
 	setTimeout(load_addonpages,5000);

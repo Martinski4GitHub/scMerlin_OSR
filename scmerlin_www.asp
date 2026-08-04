@@ -28,7 +28,7 @@ p{font-weight:bolder}thead.collapsible-jquery{color:#fff;padding:0;width:100%;bo
 <script>
 
 /**----------------------------**/
-/** Last Modified: 2026-Jul-24 **/
+/** Last Modified: 2026-Aug-04 **/
 /**----------------------------**/
 
 var custom_settings;
@@ -156,11 +156,14 @@ function show_memcpu()
 	document.getElementById('nvram_td').innerHTML = round(mem_stats_arr[6]/1024,2).toFixed(2) + ' / ' + nvramtotal + ' KB';
 	document.getElementById('jffs_td').innerHTML = jffs_Usage;
 
-	if (parseInt(mem_stats_arr[5]) == 0){
+	if (parseInt(mem_stats_arr[5]) === 0)
+	{
 		document.getElementById('mem_swap_td').innerHTML = '<span>No swap configured</span>';
 	}
-	else{
-		document.getElementById('mem_swap_td').innerHTML = mem_stats_arr[4] + ' / ' + mem_stats_arr[5] + ' MB';
+	else
+	{
+		document.getElementById('mem_swap_td').innerHTML =
+		                         mem_stats_arr[4] + ' / ' + round(mem_stats_arr[5], 1).toFixed(1) + ' MB';
 	}
 }
 
@@ -511,13 +514,17 @@ let unitsConversion = false;
 let unitsFahrenheit = false;
 function ToggleTemperatureUnits(checkboxElem)
 {
-    unitsConversion = true;
-    unitsFahrenheit = checkboxElem.checked;
-    update_temperatures();
+	unitsConversion = true;
+	unitsFahrenheit = checkboxElem.checked;
+	if (unitsFahrenheit)
+	{ SetCookie(checkboxElem.id,'unitsFahrenheit'); }
+	else
+	{ SetCookie(checkboxElem.id,'unitsCelsius'); }
+	update_temperatures();
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2026-Jul-24] **/
+/** Modified by Martinski W. [2026-Aug-04] **/
 /**----------------------------------------**/
 function update_temperatures()
 {
@@ -534,6 +541,16 @@ function update_temperatures()
 	{
 		if (window._scmPauseAjax) return;
 		let code, cpuTempValue, cpuTempUnits;
+
+		let temptrUnitsElem = document.getElementById('temptrUnitsF');
+		if (temptrUnitsElem)
+		{
+			if (GetCookie(temptrUnitsElem.id, 'string') === 'unitsFahrenheit')
+			{ unitsFahrenheit = true; }
+			else
+			{ unitsFahrenheit = false; }
+			temptrUnitsElem.checked = unitsFahrenheit;
+		}
 
 		code = '<b>2.4 GHz: </b><span>' + GetTemperatureValue ('2.4GHz') + '</span>';
 
@@ -562,7 +579,7 @@ function update_temperatures()
 		{ CPUtemp = curr_coreTmp_cpu; }
 		else
 		{ CPUtemp = curr_cpuTemp; }
-		
+
 		if (CPUtemp !== '' && CPUtemp.length > 1)
 		{
 			cpuTempUnits = 'C';

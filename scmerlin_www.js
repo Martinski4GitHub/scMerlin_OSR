@@ -1,5 +1,5 @@
 /**----------------------------**/
-/** Last Modified: 2026-Jul-24 **/
+/** Last Modified: 2026-Aug-20 **/
 /**----------------------------**/
 
 var arrayproclistlines = [];
@@ -722,17 +722,20 @@ function Save_NTPReadyCheck_Option()
    setTimeout(Get_NTPReadyCheck_Option, theTimeout);
 }
 
-function load_addonpages(){
+function load_addonpages()
+{
 	$.ajax({
 		url: '/ext/scmerlin/addonwebpages.htm',
 		dataType: 'text',
 		error: function(xhr){
 			setTimeout(load_addonpages,1000);
 		},
-		success: function(data){
+		success: function(data)
+		{
 			var addonpages = data.split('\n');
 			addonpages = addonpages.filter(Boolean);
-			for(var i = 0; i < addonpages.length; i++){
+			for (var i = 0; i < addonpages.length; i++)
+			{
 				try{
 					var addonfields = addonpages[i].split(',');
 					var parsedaddonline = new Object();
@@ -750,7 +753,8 @@ function load_addonpages(){
 			});
 			
 			var addonpageshtml='';
-			for(var i = 0; i < sortedAddonPages.length; i++){
+			for (var i = 0; i < sortedAddonPages.length; i++)
+			{
 				addonpageshtml += BuildAddonPageTable(sortedAddonPages[i].NAME,sortedAddonPages[i].URL,i);
 			}
 			
@@ -761,7 +765,8 @@ function load_addonpages(){
 	});
 }
 
-function get_cronlist_file(){
+function get_cronlist_file()
+{
 	$.ajax({
 		url: '/ext/scmerlin/scmcronjobs.htm',
 		dataType: 'text',
@@ -805,7 +810,8 @@ function ParseCronJobs(data)
 	SortTable('sortTableCron','arraycronjobs',sortnamecron+' '+sortdircron.replace('desc','↑').replace('asc','↓').trim(),'sortnamecron','sortdircron');
 }
 
-function get_proclist_file(){
+function get_proclist_file()
+{
 	$.ajax({
 		url: '/ext/scmerlin/top.htm',
 		dataType: 'text',
@@ -814,18 +820,20 @@ function get_proclist_file(){
 		},
 		success: function(data){
 			ParseProcList(data);
-			if(document.getElementById('auto_refresh').checked){
+			if (document.getElementById('auto_refresh').checked){
 				tmout = setTimeout(get_proclist_file,5000);
 			}
 		}
 	});
 }
 
-function ParseProcList(data){
+function ParseProcList(data)
+{
 	var arrayproclines = data.split('\n');
 	arrayproclines = arrayproclines.filter(Boolean);
 	arrayproclistlines = [];
-	for(var i = 0; i < arrayproclines.length; i++){
+	for (var i = 0; i < arrayproclines.length; i++)
+	{
 		try{
 			var procfields = arrayproclines[i].split(',');
 			var parsedprocline = new Object();
@@ -857,18 +865,22 @@ if (typeof window.cookie === "undefined" ||
     typeof window.cookie.get !== "function" ||
     typeof window.cookie.set !== "function")
 {
-    window.cookie = {
-        get: function (key) {
+    window.cookie =
+    {
+        get: function(key)
+        {
             return window.localStorage.getItem(key);
         },
 
         /** In the previous 'cookie' function a 3rd argument was given for 'days' **/
         /** Here, we ignore the value because there is no expiration date anymore **/
-        set: function (key, value, days) {
+        set: function(key, value, days)
+        {
             window.localStorage.setItem(key, String(value));
         },
 
-        unset: function (key) {
+        unset: function(key)
+        {
             window.localStorage.removeItem(key);
         }
     };
@@ -876,42 +888,55 @@ if (typeof window.cookie === "undefined" ||
     console.log("Installed localStorage compatibility for cookie API.");
 }
 
-function GetCookie(cookiename,returntype){
-	if(cookie.get('scm_'+cookiename) != null){
+function GetCookie(cookiename,returntype)
+{
+	if (cookie.get('scm_'+cookiename) !== null)
+	{
 		return cookie.get('scm_'+cookiename);
 	}
-	else{
-		if(returntype == 'string'){
+	else
+	{
+		if (returntype === 'string')
+		{
 			return '';
 		}
-		else if(returntype == 'number'){
+		else if (returntype === 'number')
+		{
 			return 0;
 		}
 	}
 }
 
-function SetCookie(cookiename,cookievalue){
-	cookie.set('scm_'+cookiename,cookievalue,10 * 365);
+function SetCookie(cookiename,cookievalue)
+{
+	cookie.set('scm_'+cookiename, cookievalue, 10*365);
 }
 
-function AddEventHandlers(){
+function AddEventHandlers()
+{
 	$('.collapsible-jquery').off('click').on('click',function(){
 		$(this).siblings().toggle('fast',function(){
-			if($(this).css('display') == 'none'){
+			if ($(this).css('display') == 'none')
+			{
 				SetCookie($(this).siblings()[0].id,'collapsed');
 			}
-			else{
+			else
+			{
 				SetCookie($(this).siblings()[0].id,'expanded');
-				if($(this).siblings()[0].id == 'routermemory'){
+				if ($(this).siblings()[0].id == 'routermemory')
+				{
 					Draw_Chart('MemoryUsage');
-					if(parseInt(mem_stats_arr[5]) != 0){
+					if (parseInt(mem_stats_arr[5]) != 0)
+					{
 						Draw_Chart('SwapUsage');
 					}
-					else{
+					else
+					{
 						Draw_Chart_NoData('SwapUsage','No swap file configured');
 					}
 				}
-				else if($(this).siblings()[0].id == 'routerstorage'){
+				else if ($(this).siblings()[0].id == 'routerstorage')
+				{
 					Draw_Chart('nvramUsage');
 					Draw_Chart('jffsUsage');
 				}
@@ -920,10 +945,12 @@ function AddEventHandlers(){
 	});
 	
 	$('.collapsible-jquery').each(function(index,element){
-		if(GetCookie($(this)[0].id,'string') == 'collapsed'){
+		if (GetCookie($(this)[0].id,'string') == 'collapsed')
+		{
 			$(this).siblings().toggle(false);
 		}
-		else{
+		else
+		{
 			$(this).siblings().toggle(true);
 		}
 	});
@@ -931,11 +958,13 @@ function AddEventHandlers(){
 	$('#auto_refresh').off('click').on('click',function(){ToggleRefresh();});
 }
 
-function SortTable(tableid,arrayid,sorttext,sortname,sortdir){
+function SortTable(tableid,arrayid,sorttext,sortname,sortdir)
+{
 	window[sortname] = sorttext.replace('↑','').replace('↓','').trim();
 	var sorttype = 'number';
 	var sortfield = window[sortname];
-	switch(window[sortname]){
+	switch(window[sortname])
+	{
 		case 'VSZ%':
 			sortfield = 'VSZP';
 		break;
@@ -951,30 +980,38 @@ function SortTable(tableid,arrayid,sorttext,sortname,sortdir){
 		break;
 	}
 	
-	if(sorttype == 'string'){
-		if(sorttext.indexOf('↓') == -1 && sorttext.indexOf('↑') == -1){
+	if (sorttype === 'string')
+	{
+		if (sorttext.indexOf('↓') == -1 && sorttext.indexOf('↑') == -1)
+		{
 			eval(arrayid+' = '+arrayid+'.sort((a,b) => (a.'+sortfield+'.toLowerCase() > b.'+sortfield+'.toLowerCase()) ? 1 : ((b.'+sortfield+'.toLowerCase() > a.'+sortfield+'.toLowerCase()) ? -1 : 0));');
 			window[sortdir] = 'asc';
 		}
-		else if(sorttext.indexOf('↓') != -1){
+		else if (sorttext.indexOf('↓') != -1)
+		{
 			eval(arrayid+' = '+arrayid+'.sort((a,b) => (a.'+sortfield+'.toLowerCase() > b.'+sortfield+'.toLowerCase()) ? 1 : ((b.'+sortfield+'.toLowerCase() > a.'+sortfield+'.toLowerCase()) ? -1 : 0));');
 			window[sortdir] = 'asc';
 		}
-		else{
+		else
+		{
 			eval(arrayid+' = '+arrayid+'.sort((a,b) => (a.'+sortfield+'.toLowerCase() < b.'+sortfield+'.toLowerCase()) ? 1 : ((b.'+sortfield+'.toLowerCase() < a.'+sortfield+'.toLowerCase()) ? -1 : 0));');
 			window[sortdir] = 'desc';
 		}
 	}
-	else if(sorttype == 'number'){
-		if(sorttext.indexOf('↓') == -1 && sorttext.indexOf('↑') == -1){
+	else if (sorttype === 'number')
+	{
+		if (sorttext.indexOf('↓') == -1 && sorttext.indexOf('↑') == -1)
+		{
 			eval(arrayid+' = '+arrayid+'.sort((a,b) => parseFloat(getNum(a.'+sortfield+'.replace("m","000"))) - parseFloat(getNum(b.'+sortfield+'.replace("m","000"))));');
 			window[sortdir] = 'asc';
 		}
-		else if(sorttext.indexOf('↓') != -1){
+		else if (sorttext.indexOf('↓') != -1)
+		{
 			eval(arrayid+' = '+arrayid+'.sort((a,b) => parseFloat(getNum(a.'+sortfield+'.replace("m","000"))) - parseFloat(getNum(b.'+sortfield+'.replace("m","000"))));');
 			window[sortdir] = 'asc';
 		}
-		else{
+		else
+		{
 			eval(arrayid+' = '+arrayid+'.sort((a,b) => parseFloat(getNum(b.'+sortfield+'.replace("m","000"))) - parseFloat(getNum(a.'+sortfield+'.replace("m","000"))));');
 			window[sortdir] = 'desc';
 		}
@@ -984,47 +1021,55 @@ function SortTable(tableid,arrayid,sorttext,sortname,sortdir){
 	$('#'+tableid).append(BuildSortTableHtml(tableid));
 	
 	$('#'+tableid).find('.sortable').each(function(index,element){
-		if(element.innerHTML == window[sortname]){
-			if(window[sortdir] == 'asc'){
+		if (element.innerHTML == window[sortname])
+		{
+			if (window[sortdir] === 'asc')
+			{
 				element.innerHTML = window[sortname]+' ↑';
 			}
-			else{
+			else
+			{
 				element.innerHTML = window[sortname]+' ↓';
 			}
 		}
 	});
 }
 
-function getNum(val){
-	if(isNaN(val)){
-		if(val == "*"){
+function getNum(val)
+{
+	if (isNaN(val))
+	{
+		if (val == "*")
+		{
 			return -10;
 		}
-		else if(val.indexOf("*/") != -1){
+		else if (val.indexOf("*/") != -1)
+		{
 			return -5;
 		}
-		else if(val.indexOf("/") != -1){
+		else if (val.indexOf("/") != -1)
+		{
 			return val.split("/")[0];
 		}
-		else if(val == "Sun"){
+		else if (val == "Sun"){
 			return 0;
 		}
-		else if(val == "Mon"){
+		else if (val == "Mon"){
 			return 1;
 		}
-		else if(val == "Tue"){
+		else if (val == "Tue"){
 			return 2;
 		}
-		else if(val == "Wed"){
+		else if (val == "Wed"){
 			return 3;
 		}
-		else if(val == "Thu"){
+		else if (val == "Thu"){
 			return 4;
 		}
-		else if(val == "Fri"){
+		else if (val == "Fri"){
 			return 5;
 		}
-		else if(val == "Sat"){
+		else if (val == "Sat"){
 			return 6;
 		}
 	}
@@ -1033,10 +1078,12 @@ function getNum(val){
 
 function ToggleRefresh()
 {
-	if($('#auto_refresh').prop('checked') == true){
+	if ($('#auto_refresh').prop('checked') == true)
+	{
 		get_proclist_file();
 	}
-	else{
+	else
+	{
 		if (tmout != null) clearTimeout(tmout);
 	}
 }
@@ -1045,7 +1092,8 @@ function BuildAddonPageTable(addonname,addonurl,loopindex)
 {
 	var addonpageshtml = '';
 	
-	if(loopindex == 0){
+	if (loopindex === 0)
+	{
 		addonpageshtml += '<div style="line-height:10px;">&nbsp;</div>';
 		addonpageshtml += '<table width="100%" border="1" align="center" cellpadding="2" cellspacing="0" bordercolor="#6b8fa3" class="FormTable SettingsTable" style="border:0px;" id="table_services">';
 		addonpageshtml += '<thead class="collapsible-jquery" id="addonpages">';
@@ -1053,19 +1101,24 @@ function BuildAddonPageTable(addonname,addonurl,loopindex)
 		addonpageshtml += '</thead>';
 	}
 	
-	if(loopindex == 0 || loopindex % 4 == 0){
+	if (loopindex === 0 || loopindex % 4 === 0)
+	{
 		addonpageshtml += '<tr>';
 	}
 	
 	addonpageshtml += '<td class="addonpageurl"><a href="'+addonurl.substring(addonurl.lastIndexOf("/")+1)+'">'+addonname+'</a><br /><span class="addonpageurl">'+addonurl.substring(addonurl.lastIndexOf("/")+1)+'</span></td>';
-	if(loopindex > 0 && (loopindex+1) % 4 == 0){
+	if (loopindex > 0 && (loopindex+1) % 4 === 0)
+	{
 		addonpageshtml += '</tr>';
 	}
 	
-	if(loopindex == sortedAddonPages.length-1){
-		if(sortedAddonPages.length % 4 != 0){
+	if (loopindex === sortedAddonPages.length-1)
+	{
+		if (sortedAddonPages.length % 4 != 0)
+		{
 			var missingtds = 4 - sortedAddonPages.length % 4;
-			for(var i = 0; i < missingtds; i++){
+			for (var i = 0; i < missingtds; i++)
+			{
 				addonpageshtml += '<td class="addonpageurl"></td>';
 			}
 			addonpageshtml += '</tr>';
@@ -1083,7 +1136,7 @@ function BuildServiceTable(srvname,srvdesc,srvnamevisible,theIndex)
 {
 	var serviceshtml = '';
 
-	if (theIndex == 0)
+	if (theIndex === 0)
 	{
 		serviceshtml += '<div style="line-height:10px;">&nbsp;</div>';
 		serviceshtml += '<table width="100%" border="1" align="center" cellpadding="2" cellspacing="0" bordercolor="#6b8fa3" class="FormTable SettingsTable" style="border:0px;" id="table_services">';
@@ -1091,7 +1144,8 @@ function BuildServiceTable(srvname,srvdesc,srvnamevisible,theIndex)
 		serviceshtml += '<tr><td colspan="4">Services (click to expand/collapse)</td></tr>';
 		serviceshtml += '</thead>';
 	}
-	if (theIndex == 0 || theIndex % 2 == 0){
+	if (theIndex === 0 || theIndex % 2 === 0)
+	{
 		serviceshtml += '<tr>';
 	}
 	if (srvnamevisible)
@@ -1110,10 +1164,12 @@ function BuildServiceTable(srvname,srvdesc,srvnamevisible,theIndex)
 	serviceshtml += '<img id="imgRestartSrv_'+srvname+'" style="display:none;vertical-align:middle;" src="images/InternetScan.gif"/>';
 	serviceshtml += '</td>';
 
-	if (theIndex > 0 && (theIndex+1) % 2 == 0){
+	if (theIndex > 0 && (theIndex+1) % 2 === 0)
+	{
 		serviceshtml += '</tr>';
 	}
-	if (theIndex == srvnamelist.length-1){
+	if (theIndex == srvnamelist.length-1)
+	{
 		serviceshtml += '</table>';
 	}
 	return serviceshtml;
@@ -1128,7 +1184,7 @@ function Build_OpenVPNClient_Table(theIndex)
 	let vpnClientName = 'vpnclient'+theIndex;
 	let vpnClientDesc = eval('document.form.vpnc'+theIndex+'_desc').value;
 
-	if (theIndex == 1)
+	if (theIndex === 1)
 	{
 		vpnClientHTML += '<div style="line-height:10px;">&nbsp;</div>';
 		vpnClientHTML += '<table width="100%" border="1" align="center" cellpadding="2" cellspacing="0" bordercolor="#6b8fa3" class="FormTable SettingsTable" style="border:0px;" id="table_vpnClients">';
@@ -1136,7 +1192,7 @@ function Build_OpenVPNClient_Table(theIndex)
 		vpnClientHTML += '<tr><td colspan="4">OpenVPN Clients (click to expand/collapse)</td></tr>';
 		vpnClientHTML += '</thead>';
 	}
-	if (theIndex == 1 || (theIndex+1) % 2 == 0)
+	if (theIndex === 1 || (theIndex+1) % 2 === 0)
 	{
 		vpnClientHTML += '<tr>';
 	}
@@ -1149,15 +1205,15 @@ function Build_OpenVPNClient_Table(theIndex)
 	vpnClientHTML += '<img id="imgRestartSrv_'+vpnClientName+'" style="display:none;vertical-align:middle;" src="images/InternetScan.gif"/>';
 	vpnClientHTML += '</td>';
 
-	if (theIndex == 5)
+	if (theIndex === 5)
 	{
 		vpnClientHTML += '<td class="servicename"></td><td class="servicevalue"></td>';
 	}
-	if (theIndex > 1 && theIndex % 2 == 0)
+	if (theIndex > 1 && theIndex % 2 === 0)
 	{
 		vpnClientHTML += '</tr>';
 	}
-	if (theIndex == 5)
+	if (theIndex === 5)
 	{
 		vpnClientHTML += '</table>';
 	}
@@ -1172,7 +1228,7 @@ function Build_OpenVPNServer_Table(theIndex)
 	let vpnServerHTML = '';
 	let vpnServerName = 'vpnserver'+theIndex;
 
-	if (theIndex == 1)
+	if (theIndex === 1)
 	{
 		vpnServerHTML += '<div style="line-height:10px;">&nbsp;</div>';
 		vpnServerHTML += '<table width="100%" border="1" align="center" cellpadding="2" cellspacing="0" bordercolor="#6b8fa3" class="FormTable SettingsTable" style="border:0px;" id="table_vpnServers">';
@@ -1190,7 +1246,7 @@ function Build_OpenVPNServer_Table(theIndex)
 	vpnServerHTML += '<img id="imgRestartSrv_'+vpnServerName+'" style="display:none;vertical-align:middle;" src="images/InternetScan.gif"/>';
 	vpnServerHTML += '</td>';
 
-	if (theIndex == 2)
+	if (theIndex === 2)
 	{
 		vpnServerHTML += '</tr>';
 		vpnServerHTML += '</table>';
@@ -1207,7 +1263,7 @@ function Build_WireGuardServer_Table(theIndex)
 	let wgServerName = 'wgServer'+theIndex;
 
 	// Currently only ONE WireGuard Server is available //
-	if (theIndex == 1)
+	if (theIndex === 1)
 	{
 		wgServerHTML += '<div style="line-height:10px;">&nbsp;</div>';
 		wgServerHTML += '<table width="100%" border="1" align="center" cellpadding="2" cellspacing="0" bordercolor="#6b8fa3" class="FormTable SettingsTable" style="border:0px;" id="table_wgServers">';
@@ -1225,7 +1281,7 @@ function Build_WireGuardServer_Table(theIndex)
 	wgServerHTML += '<img id="imgRestartSrv_'+wgServerName+'" style="display:none;vertical-align:middle;" src="images/InternetScan.gif"/>';
 	wgServerHTML += '</td>';
 
-	if (theIndex == 1)
+	if (theIndex === 1)
 	{
 		wgServerHTML += '<td class="servicename"></td><td class="servicevalue"></td>';
 		wgServerHTML += '</table>';
@@ -1244,7 +1300,7 @@ function Build_WireGuardClient_Table(theIndex)
 	if (wgClientDesc === null || wgClientDesc === '')
 	{ wgClientDesc = 'No description'; }
 
-	if (theIndex == 1)
+	if (theIndex === 1)
 	{
 		wgClientHTML += '<div style="line-height:10px;">&nbsp;</div>';
 		wgClientHTML += '<table width="100%" border="1" align="center" cellpadding="2" cellspacing="0" bordercolor="#6b8fa3" class="FormTable SettingsTable" style="border:0px;" id="table_wgClients">';
@@ -1252,7 +1308,7 @@ function Build_WireGuardClient_Table(theIndex)
 		wgClientHTML += '<tr><td colspan="4">WireGuard Clients (click to expand/collapse)</td></tr>';
 		wgClientHTML += '</thead>';
 	}
-	if (theIndex == 1 || (theIndex+1) % 2 == 0)
+	if (theIndex === 1 || (theIndex+1) % 2 === 0)
 	{
 		wgClientHTML += '<tr>';
 	}
@@ -1265,7 +1321,7 @@ function Build_WireGuardClient_Table(theIndex)
 	wgClientHTML += '<img id="imgRestartSrv_'+wgClientName+'" style="display:none;vertical-align:middle;" src="images/InternetScan.gif"/>';
 	wgClientHTML += '</td>';
 
-	if (theIndex == 5)
+	if (theIndex === 5)
 	{
 		wgClientHTML += '<td class="servicename"></td><td class="servicevalue"></td>';
 	}
@@ -1273,14 +1329,15 @@ function Build_WireGuardClient_Table(theIndex)
 	{
 		wgClientHTML += '</tr>';
 	}
-	if (theIndex == 5)
+	if (theIndex === 5)
 	{
 		wgClientHTML += '</table>';
 	}
 	return wgClientHTML;
 }
 
-function round(value,decimals){
+function round(value,decimals)
+{
 	return Number(Math.round(value+'e'+decimals)+'e-'+decimals);
 }
 
